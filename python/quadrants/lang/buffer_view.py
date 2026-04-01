@@ -51,8 +51,9 @@ def _build_callstack(max_bytes):
         kept_tail = 1
         while kept_head + kept_tail + 1 < len(frames):
             head_part = _format_chain(frames[:kept_head + 1])
-            tail_part = _format_chain(frames[-(kept_tail + 1):], start_depth=len(frames) - kept_tail - 1)
-            trial = head_part + "\n" + "  " * (kept_head + 1) + "..." + "\n" + tail_part
+            tail_part = _format_chain(frames[-kept_tail:], start_depth=len(frames) - kept_tail)
+            omitted_trial = len(frames) - (kept_head + 1) - kept_tail
+            trial = head_part + "\n" + "  " * (kept_head + 1) + f"...({omitted_trial} more)..." + "\n" + tail_part
             if len(trial) <= budget:
                 kept_head += 1
             else:
