@@ -27,6 +27,9 @@ std::vector<typename Vec::value_type::pointer> make_raw_pointer_list(const Vec &
 // Lower Expr tree to a bunch of binary/unary(binary/unary) statements
 // Goal: eliminate Expression, Identifiers, and mutable local variables. Make
 // AST SSA.
+// Frontend statements are not SSA operands: frontend values refer to
+// Identifiers/Expressions, which lowering resolves through local_var_to_stmt.
+// Replacing a frontend statement therefore must not scan the IR for users.
 class LowerAST : public IRVisitor {
  private:
   Stmt *capturing_loop_;
@@ -78,11 +81,11 @@ class LowerAST : public IRVisitor {
       auto lowered =
           std::make_unique<AllocaStmt>(tensor_type->get_shape(), tensor_type->get_element_type(), stmt->is_shared);
       block->local_var_to_stmt.insert(std::make_pair(ident, lowered.get()));
-      stmt->parent->replace_with(stmt, std::move(lowered));
+      stmt->parent->replace_with(stmt, std::move(lowered), /*replace_usages=*/false);
     } else {
       auto lowered = std::make_unique<AllocaStmt>(alloca_type);
       block->local_var_to_stmt.insert(std::make_pair(ident, lowered.get()));
-      stmt->parent->replace_with(stmt, std::move(lowered));
+      stmt->parent->replace_with(stmt, std::move(lowered), /*replace_usages=*/false);
     }
   }
 
@@ -95,7 +98,7 @@ class LowerAST : public IRVisitor {
       args.push_back(flatten_rvalue(arg, &fctx));
     }
     auto lowered = fctx.push_back<FuncCallStmt>(stmt->func, args);
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
     if (const auto &ident = stmt->ident) {
       QD_ASSERT(block->local_var_to_stmt.find(ident.value()) == block->local_var_to_stmt.end());
       block->local_var_to_stmt.insert(std::make_pair(ident.value(), lowered));
@@ -116,7 +119,7 @@ class LowerAST : public IRVisitor {
     }
     auto pif = new_if.get();
     fctx.push_back(std::move(new_if));
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
     pif->accept(this);
   }
 
@@ -145,7 +148,7 @@ class LowerAST : public IRVisitor {
       }
     }
     fctx.push_back<PrintStmt>(new_contents, stmt->formats);
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendBreakStmt *stmt) override {
@@ -153,11 +156,11 @@ class LowerAST : public IRVisitor {
     VecStatement stmts;
     auto const_true = stmts.push_back<ConstStmt>(TypedConstant((int32)0));
     stmts.push_back<WhileControlStmt>(while_stmt->mask, const_true);
-    stmt->parent->replace_with(stmt, std::move(stmts));
+    stmt->parent->replace_with(stmt, std::move(stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendContinueStmt *stmt) override {
-    stmt->parent->replace_with(stmt, Stmt::make<ContinueStmt>());
+    stmt->parent->replace_with(stmt, Stmt::make<ContinueStmt>(), /*replace_usages=*/false);
   }
 
   void visit(FrontendWhileStmt *stmt) override {
@@ -180,7 +183,7 @@ class LowerAST : public IRVisitor {
     stmt->insert_before_me(std::move(const_stmt));
     stmt->insert_before_me(std::make_unique<LocalStoreStmt>(new_while->mask, const_stmt_ptr));
     auto pwhile = new_while.get();
-    stmt->parent->replace_with(stmt, std::move(new_while));
+    stmt->parent->replace_with(stmt, std::move(new_while), /*replace_usages=*/false);
     pwhile->accept(this);
     // insert an alloca for the mask
   }
@@ -354,7 +357,7 @@ class LowerAST : public IRVisitor {
       }
     }
     auto pfor = fctx.stmts.back().get();
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
     pfor->accept(this);
   }
 
@@ -387,7 +390,7 @@ class LowerAST : public IRVisitor {
       return_ele.push_back(flatten_rvalue(x, &fctx));
     }
     fctx.push_back<ReturnStmt>(return_ele);
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendAssignStmt *assign) override {
@@ -423,7 +426,7 @@ class LowerAST : public IRVisitor {
       fctx.push_back<GlobalStoreStmt>(dest_stmt, expr_stmt);
     }
     fctx.stmts.back()->dbg_info = assign->dbg_info;
-    assign->parent->replace_with(assign, std::move(fctx.stmts));
+    assign->parent->replace_with(assign, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendSNodeOpStmt *stmt) override {
@@ -457,7 +460,7 @@ class LowerAST : public IRVisitor {
       QD_NOT_IMPLEMENTED
     }
 
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendAssertStmt *stmt) override {
@@ -474,13 +477,13 @@ class LowerAST : public IRVisitor {
       args_stmts[i] = flatten_rvalue(fargs[i], &fctx);
     }
     fctx.push_back<AssertStmt>(val_stmt, stmt->text, args_stmts, stmt->dbg_info);
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendExprStmt *stmt) override {
     auto fctx = make_flatten_ctx();
     flatten_rvalue(stmt->val, &fctx);
-    stmt->parent->replace_with(stmt, std::move(fctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(fctx.stmts), /*replace_usages=*/false);
   }
 
   void visit(FrontendExternalFuncStmt *stmt) override {
@@ -509,7 +512,7 @@ class LowerAST : public IRVisitor {
                                                            stmt->bc_filename, stmt->bc_funcname, arg_statements,
                                                            output_statements));
     }
-    stmt->parent->replace_with(stmt, std::move(ctx.stmts));
+    stmt->parent->replace_with(stmt, std::move(ctx.stmts), /*replace_usages=*/false);
   }
 
   static void run(IRNode *node) {
