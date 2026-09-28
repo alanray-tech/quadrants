@@ -28,6 +28,10 @@ class ConstantFold : public BasicStmtVisitor {
  public:
   using BasicStmtVisitor::visit;
   DelayedIRModifier modifier;
+  ImmediateIRModifier immediate_modifier;
+
+  explicit ConstantFold(IRNode *root) : immediate_modifier(root) {
+  }
 
   static bool is_good_type(DataType dt) {
     // ConstStmt of `bad` types like `i8` is not supported by LLVM.
@@ -239,7 +243,7 @@ class ConstantFold : public BasicStmtVisitor {
 
   void visit(UnaryOpStmt *stmt) override {
     if (stmt->is_cast() && stmt->cast_type == stmt->operand->ret_type) {
-      stmt->replace_usages_with(stmt->operand);
+      immediate_modifier.replace_usages_with(stmt, stmt->operand);
       modifier.erase(stmt);
       return;
     }
@@ -271,10 +275,12 @@ class ConstantFold : public BasicStmtVisitor {
   }
 
   static bool run(IRNode *node) {
-    ConstantFold folder;
     bool modified = false;
 
     while (true) {
+      // The usage index is rebuilt after each delayed edit so it includes
+      // constants inserted by the preceding fixpoint iteration.
+      ConstantFold folder(node);
       node->accept(&folder);
       if (folder.modifier.modify_ir()) {
         modified = true;
@@ -289,7 +295,7 @@ class ConstantFold : public BasicStmtVisitor {
  private:
   void insert_and_erase(Stmt *stmt, const TypedConstant &new_constant) {
     auto evaluated = Stmt::make<ConstStmt>(new_constant);
-    stmt->replace_usages_with(evaluated.get());
+    immediate_modifier.replace_usages_with(stmt, evaluated.get());
     modifier.insert_before(stmt, std::move(evaluated));
     modifier.erase(stmt);
   }
@@ -305,7 +311,7 @@ class ConstantFold : public BasicStmtVisitor {
     auto evaluated = Stmt::make<MatrixInitStmt>(values);
     evaluated->ret_type = stmt->ret_type;
 
-    stmt->replace_usages_with(evaluated.get());
+    immediate_modifier.replace_usages_with(stmt, evaluated.get());
     modifier.insert_before(stmt, std::move(evaluated));
     modifier.erase(stmt);
   }

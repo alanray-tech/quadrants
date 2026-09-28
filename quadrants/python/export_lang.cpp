@@ -172,6 +172,8 @@ void export_lang(nb::module_ &m) {
       .def_rw("opt_level", &CompileConfig::opt_level,
               "Quadrants IR optimization level. At 0, IR-level optimizations such as common-subexpression elimination "
               "are disabled; any value above 0 enables them. This is not an LLVM -O level.")
+      .def_rw("external_optimization_level", &CompileConfig::external_optimization_level,
+              "Backend compiler optimization level from 0 to 3. LLVM backends map this to O0 through O3.")
       .def_rw("raise_on_templated_floats", &CompileConfig::raise_on_templated_floats,
               "Raise an error instead of silently specializing a kernel on a Python float it reads as a templated "
               "argument or a captured global variable (each distinct value would otherwise force its own compile).")

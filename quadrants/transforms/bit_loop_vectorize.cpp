@@ -17,6 +17,7 @@ class BitLoopVectorize : public IRVisitor {
   StructForStmt *loop_stmt;
   PrimitiveType *quant_array_physical_type;
   std::unordered_map<Stmt *, std::vector<Stmt *>> transformed_atomics;
+  bool has_quant_array_loop;
 
   BitLoopVectorize() {
     allow_undefined_visitor = true;
@@ -25,6 +26,7 @@ class BitLoopVectorize : public IRVisitor {
     in_struct_for_loop = false;
     loop_stmt = nullptr;
     quant_array_physical_type = nullptr;
+    has_quant_array_loop = false;
   }
 
   void visit(Block *stmt_list) override {
@@ -130,6 +132,7 @@ class BitLoopVectorize : public IRVisitor {
     if (stmt->snode->type != SNodeType::quant_array) {
       return;
     }
+    has_quant_array_loop = true;
     bool old_is_bit_vectorized = is_bit_vectorized;
     is_bit_vectorized = stmt->is_bit_vectorized;
     in_struct_for_loop = true;
@@ -243,9 +246,10 @@ class BitLoopVectorize : public IRVisitor {
     }
   }
 
-  static void run(IRNode *node) {
+  static bool run(IRNode *node) {
     BitLoopVectorize inst;
     node->accept(&inst);
+    return inst.has_quant_array_loop;
   }
 
  private:
@@ -296,8 +300,9 @@ namespace irpass {
 
 void bit_loop_vectorize(IRNode *root) {
   QD_AUTO_PROF;
-  BitLoopVectorize::run(root);
-  die(root);
+  if (BitLoopVectorize::run(root)) {
+    die(root);
+  }
 }
 
 }  // namespace irpass
