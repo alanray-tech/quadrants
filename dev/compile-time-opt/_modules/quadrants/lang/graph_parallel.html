@@ -374,6 +374,8 @@
 
 <span class="sd">    Restrictions (enforced at kernel compile time):</span>
 <span class="sd">      - Must be used inside ``@qd.kernel(graph=True)``.</span>
+<span class="sd">      - In a ``checkpoints=True`` kernel, the complete region must be inside one explicit</span>
+<span class="sd">        ``qd.checkpoint(...)``; that checkpoint owns the fork/join for yield and resume.</span>
 <span class="sd">      - The region body may contain only ``with qd.graph.parallel():`` blocks.</span>
 <span class="sd">      - Regions cannot be nested, and a ``qd.graph.parallel`` section body must be straight-line task work</span>
 <span class="sd">        (no nested ``qd.graph.do_while``, ``qd.checkpoint``, or ``qd.graph.parallel_context``).</span>

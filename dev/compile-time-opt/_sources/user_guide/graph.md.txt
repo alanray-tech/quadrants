@@ -291,7 +291,7 @@ The restriction is by design: each top-level statement inside a checkpoint becom
 
 A `with qd.graph.parallel_context():` region lets you declare independent stages so the graph runs them concurrently.
 
-`qd.graph.parallel_context` is honored by the graph builder so it composes with `graph=True` and `qd.graph.do_while`.
+`qd.graph.parallel_context` is honored by the graph builder so it composes with `graph=True`, `qd.graph.do_while`, and an enclosing explicit `qd.checkpoint`.
 
 ```python
 @qd.kernel(graph=True)
@@ -309,6 +309,20 @@ def step(...):
         # join: everything below waits for BOTH `qd.graph.parallel` sections to finish
         merge_hessians(...)
         precondition(...)
+```
+
+In a `checkpoints=True` kernel, put the complete region inside one explicit checkpoint. The fork/join then belongs to that checkpoint: all sections finish before its yield check, and resume skips or replays the complete region.
+
+```python
+@qd.kernel(graph=True, checkpoints=True)
+def step(overflow: qd.types.ndarray(qd.i32, ndim=0), ...):
+    with qd.checkpoint(0, yield_on=overflow):
+        reset_counts(...)
+        with qd.graph.parallel_context():
+            with qd.graph.parallel():
+                query_pt(...)
+            with qd.graph.parallel():
+                query_ee(...)
 ```
 
 ### Semantics
@@ -342,6 +356,7 @@ The loop **must** be a `qd.static(...)` loop (its trip count is known at compile
 - `qd.graph.parallel_context` may contain only `with qd.graph.parallel():` blocks, optionally wrapped in `if qd.static(...)` (so an optional `qd.graph.parallel` section can be compiled in or out - e.g. enabling edge-edge contacts only when a feature flag is set) or `for ... in qd.static(...)` loops (generate one `qd.graph.parallel` section per element of a compile-time sequence).
 - `qd.graph.parallel()` may appear only directly inside a `qd.graph.parallel_context()`.
 - `qd.graph.parallel_context` cannot be nested, and a `qd.graph.parallel` section body must be straight-line task work - no `qd.graph.do_while`, `qd.checkpoint`, or nested `qd.graph.parallel_context` inside a `qd.graph.parallel` section (a `qd.graph.parallel_context` may, however, sit inside a `qd.graph.do_while` body, as shown above).
+- In a `@qd.kernel(graph=True, checkpoints=True)` kernel, every `qd.graph.parallel_context` must be lexically inside an explicit `qd.checkpoint`. A bare region is rejected because its tasks would otherwise belong to the unconditional prologue and violate resume ordering.
 
 ### Backend behavior
 

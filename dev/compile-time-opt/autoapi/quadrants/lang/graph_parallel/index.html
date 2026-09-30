@@ -410,6 +410,8 @@ empty node, so the runtime schedules them on parallel streams (real overlap).</p
 </dd>
 <dt>Restrictions (enforced at kernel compile time):</dt><dd><ul class="simple">
 <li><p>Must be used inside <code class="docutils literal notranslate"><span class="pre">&#64;qd.kernel(graph=True)</span></code>.</p></li>
+<li><p>In a <code class="docutils literal notranslate"><span class="pre">checkpoints=True</span></code> kernel, the complete region must be inside one explicit
+<code class="docutils literal notranslate"><span class="pre">qd.checkpoint(...)</span></code>; that checkpoint owns the fork/join for yield and resume.</p></li>
 <li><p>The region body may contain only <code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">qd.graph.parallel():</span></code> blocks.</p></li>
 <li><p>Regions cannot be nested, and a <code class="docutils literal notranslate"><span class="pre">qd.graph.parallel</span></code> section body must be straight-line task work
 (no nested <code class="docutils literal notranslate"><span class="pre">qd.graph.do_while</span></code>, <code class="docutils literal notranslate"><span class="pre">qd.checkpoint</span></code>, or <code class="docutils literal notranslate"><span class="pre">qd.graph.parallel_context</span></code>).</p></li>
