@@ -1,4 +1,7 @@
+import numpy as np
+
 import quadrants as qd
+from quadrants.lang import impl
 
 from tests import test_utils
 
@@ -92,6 +95,39 @@ def test_offload_with_flexible_bounds():
     ker()
 
     assert s[None] == 29 * 10 // 2
+
+
+@test_utils.test(arch=qd.cuda, offline_cache=False)
+def test_cuda_dynamic_range_bounds_are_inlined_into_worker_kernel():
+    begin = qd.ndarray(qd.i32, shape=())
+    end = qd.ndarray(qd.i32, shape=())
+    out = qd.ndarray(qd.i32, shape=(32,))
+
+    @qd.kernel(graph=True)
+    def fill_dynamic_interval(
+        begin: qd.types.ndarray(qd.i32, 0),
+        end: qd.types.ndarray(qd.i32, 0),
+        out: qd.types.ndarray(qd.i32, 1),
+    ):
+        for i in range(begin[()] + 1, end[()] - 2):
+            out[i] += i + 1
+
+    for lower, upper in ((2, 13), (7, 24)):
+        begin.from_numpy(np.array(lower, dtype=np.int32))
+        end.from_numpy(np.array(upper, dtype=np.int32))
+        out.from_numpy(np.zeros(32, dtype=np.int32))
+        fill_dynamic_interval(begin, end, out)
+
+        # A dynamic range previously lowered to one scalar serial helper plus
+        # the worker range task. CUDA now reads both live device bounds in the
+        # worker kernel, so the graph contains exactly that one task/node.
+        assert impl.get_runtime().prog.get_num_offloaded_tasks_on_last_call() == 1
+        assert impl.get_runtime().prog.get_graph_num_nodes_on_last_call() == 1
+
+        expected = np.zeros(32, dtype=np.int32)
+        for i in range(lower + 1, upper - 2):
+            expected[i] = i + 1
+        np.testing.assert_array_equal(out.to_numpy(), expected)
 
 
 @test_utils.test()

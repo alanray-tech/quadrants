@@ -105,6 +105,14 @@ class IRCloner : public IRVisitor {
     CLONE_BLOCK(bls_prologue)
     CLONE_BLOCK(mesh_prologue)
 
+    if (stmt->range_begin) {
+      other_node = other->range_begin.get();
+      stmt->range_begin->accept(this);
+    }
+    if (stmt->range_end) {
+      other_node = other->range_end.get();
+      stmt->range_end->accept(this);
+    }
     if (stmt->body) {
       other_node = other->body.get();
       stmt->body->accept(this);

@@ -622,11 +622,15 @@ class IRPrinter : public IRVisitor {
       std::string begin_str, end_str;
       if (stmt->const_begin) {
         begin_str = std::to_string(stmt->begin_value);
+      } else if (stmt->range_begin && !stmt->range_begin->statements.empty()) {
+        begin_str = fmt::format("device({})", stmt->range_begin->back()->name());
       } else {
         begin_str = fmt::format("tmp(offset={}B)", stmt->begin_offset);
       }
       if (stmt->const_end) {
         end_str = std::to_string(stmt->end_value);
+      } else if (stmt->range_end && !stmt->range_end->statements.empty()) {
+        end_str = fmt::format("device({})", stmt->range_end->back()->name());
       } else if (stmt->end_stmt && !stmt->end_stmt->is<ConstStmt>()) {
         // range_for end is a non-const stmt (e.g. ndarray axis)
         end_str = stmt->end_stmt->name();

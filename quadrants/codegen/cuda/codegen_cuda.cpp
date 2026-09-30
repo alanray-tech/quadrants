@@ -471,6 +471,16 @@ class TaskCodeGenCUDA : public TaskCodeGenLLVM {
 
     auto epilogue = create_xlogue(stmt->tls_epilogue);
 
+    // Dynamic CUDA bounds owned by this offload are evaluated in the worker
+    // kernel itself. gpu_parallel_range_for already grid-strides over the live
+    // [begin, end) interval, so no separate one-thread bound kernel or launch-
+    // dimension readback is required.
+    if (stmt->range_begin) {
+      stmt->range_begin->accept(this);
+    }
+    if (stmt->range_end) {
+      stmt->range_end->accept(this);
+    }
     auto [begin, end] = get_range_for_bounds(stmt);
     call("gpu_parallel_range_for", get_arg(0), begin, end, tls_prologue, body, epilogue,
          tlctx->get_constant(stmt->tls_size));

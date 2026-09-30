@@ -510,6 +510,9 @@ std::unique_ptr<SizeExpr> resolve_loop_end(Stmt *loop, IRNode *root, int32_t *va
     if (off->const_end) {
       return SizeExpr::make_const(off->end_value);
     }
+    if (off->range_end && !off->range_end->statements.empty()) {
+      return build_value_expr(off->range_end->back(), root, var_id_counter);
+    }
     if (off->end_stmt != nullptr) {
       return build_value_expr(off->end_stmt, root, var_id_counter);
     }
