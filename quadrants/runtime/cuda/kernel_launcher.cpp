@@ -104,6 +104,11 @@ void KernelLauncher::launch_offloaded_tasks(LaunchContextBuilder &ctx,
   // Per-task adstack setup + grid-dim capping. Shared by serial and stream-parallel paths.
   auto prepare_task = [&](std::size_t task_index, const OffloadedTask &task) -> int {
     int effective_grid_dim = task.grid_dim;
+    if (task.grid_stride) {
+      effective_grid_dim =
+          occupancy_grid_dim(cuda_module->lookup_function(task.name), effective_grid_dim, task.block_dim,
+                             static_cast<std::size_t>(task.dynamic_shared_array_bytes));
+    }
     if (!task.ad_stack.allocas.empty()) {
       std::size_t n = resolve_num_threads(task.ad_stack, executor);
       // Pass the device-side `RuntimeContext` pointer through to the adstack sizer kernel. Without it the sizer
@@ -156,8 +161,9 @@ void KernelLauncher::launch_offloaded_tasks(LaunchContextBuilder &ctx,
       // For adstack-bearing tasks, dispatch at most `kAdStackMaxConcurrentThreads` (matching the heap row count
       // resolved above). The runtime's grid-strided loop (`gpu_parallel_struct_for` / `gpu_parallel_range_for`,
       // `quadrants/runtime/llvm/runtime_module/runtime.cpp`) walks the full element list / range with
-      // `i += grid_dim()`, so a smaller grid completes the same workload sequentially per slot. Tasks without an
-      // adstack keep the codegen-emitted `task.grid_dim` (saturating_grid_dim) for max throughput.
+      // `i += grid_dim()`, so a smaller grid completes the same workload sequentially per slot. The occupancy clamp
+      // above has already removed impossible extra waves from ordinary grid-stride tasks; this applies the stricter
+      // heap-row cap when an adstack is present.
       //
       // Floor division (not ceiling): the heap-row count `n` resolved by `resolve_num_threads` floors at
       // `kAdStackMaxConcurrentThreads`, so dispatching `cap_blocks * block_dim` threads must not exceed that count.
@@ -168,7 +174,7 @@ void KernelLauncher::launch_offloaded_tasks(LaunchContextBuilder &ctx,
         const std::size_t cap_blocks =
             std::max<std::size_t>(1u, kAdStackMaxConcurrentThreads / static_cast<std::size_t>(task.block_dim));
         effective_grid_dim =
-            static_cast<int>(std::min<std::size_t>(static_cast<std::size_t>(task.grid_dim), cap_blocks));
+            static_cast<int>(std::min<std::size_t>(static_cast<std::size_t>(effective_grid_dim), cap_blocks));
         if (effective_grid_dim < 1) {
           effective_grid_dim = 1;
         }
@@ -293,8 +299,14 @@ void KernelLauncher::launch_offloaded_tasks_with_do_while(LaunchContextBuilder &
   // are not combined with this path.
   auto launch_task = [&](int i) -> bool {
     const auto &task = offloaded_tasks[i];
-    cuda_module->launch(task.name, task.grid_dim, task.block_dim, task.dynamic_shared_array_bytes, {&ctx.get_context()},
-                        {});
+    int effective_grid_dim = task.grid_dim;
+    if (task.grid_stride) {
+      effective_grid_dim =
+          occupancy_grid_dim(cuda_module->lookup_function(task.name), effective_grid_dim, task.block_dim,
+                             static_cast<std::size_t>(task.dynamic_shared_array_bytes));
+    }
+    cuda_module->launch(task.name, effective_grid_dim, task.block_dim, task.dynamic_shared_array_bytes,
+                        {&ctx.get_context()}, {});
     return true;
   };
   auto continue_level = [&](int level) -> bool { return read_flag(level); };

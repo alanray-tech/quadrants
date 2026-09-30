@@ -117,6 +117,11 @@ class OffloadedTask {
   int block_dim{0};
   int grid_dim{0};
   int dynamic_shared_array_bytes{0};
+  // True when the generated kernel advances by the launched grid width and
+  // therefore needs no more than one resident wave of blocks. CUDA uses this
+  // to replace the architecture-wide saturating grid with the compiled
+  // kernel's actual occupancy. Explicitly smaller grids remain unchanged.
+  bool grid_stride{false};
   int stream_parallel_group_id{0};
   // Per-kernel `qd.graph_parallel_context()` region id (0 outside any region). Populated by the CUDA LLVM codegen from
   // `OffloadedStmt::graph_parallel_region_id`. The GraphManager pairs it with `stream_parallel_group_id` so two
@@ -170,6 +175,7 @@ class OffloadedTask {
             block_dim,
             grid_dim,
             dynamic_shared_array_bytes,
+            grid_stride,
             stream_parallel_group_id,
             graph_parallel_region_id,
             checkpoint_id,

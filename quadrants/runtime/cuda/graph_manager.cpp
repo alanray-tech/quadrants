@@ -392,6 +392,13 @@ void *GraphManager::build_level(int parent_id,
   // A yield-bearing kernel (has_yield) wires every loop level's condition kernel to the cond-with-yield variant, so a
   // yield raised inside any checkpoint exits this and every enclosing WHILE loop.
   const bool has_yield = (cached.yield_signal_dev_ptr != nullptr);
+  auto task_grid_dim = [&](const OffloadedTask &task) {
+    if (!task.grid_stride) {
+      return task.grid_dim;
+    }
+    return occupancy_grid_dim(cuda_module->lookup_function(task.name), task.grid_dim, task.block_dim,
+                              static_cast<std::size_t>(task.dynamic_shared_array_bytes));
+  };
   int cursor = begin;
   while (cursor < end) {
     const int task_level = tasks[cursor].graph_do_while_level_id;
@@ -548,7 +555,7 @@ void *GraphManager::build_level(int parent_id,
         void *bp = prev_node;  // every qd.graph_parallel section forks from the region entry dependency
         for (int t : ps) {
           bp = add_kernel_node(target_graph, bp, cuda_module->lookup_function(tasks[t].name),
-                               (unsigned int)tasks[t].grid_dim, (unsigned int)tasks[t].block_dim,
+                               (unsigned int)task_grid_dim(tasks[t]), (unsigned int)tasks[t].block_dim,
                                (unsigned int)tasks[t].dynamic_shared_array_bytes, &ctx_ptr);
           ++total_nodes;
         }
@@ -576,7 +583,7 @@ void *GraphManager::build_level(int parent_id,
                    (std::size_t)cp < checkpoint_level_ids.size() ? checkpoint_level_ids[cp] : -99);
     void *ctx_ptr = &cached.persistent_ctx;
     prev_node = add_kernel_node(target_graph, prev_node, cuda_module->lookup_function(tasks[cursor].name),
-                                (unsigned int)tasks[cursor].grid_dim, (unsigned int)tasks[cursor].block_dim,
+                                (unsigned int)task_grid_dim(tasks[cursor]), (unsigned int)tasks[cursor].block_dim,
                                 (unsigned int)tasks[cursor].dynamic_shared_array_bytes, &ctx_ptr);
     ++total_nodes;
     cursor++;
