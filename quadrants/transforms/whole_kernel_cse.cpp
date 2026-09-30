@@ -119,37 +119,17 @@ class WholeKernelCSE : public BasicStmtVisitor {
     visited_.insert(stmt->instance_id);
   }
 
-  static void hash_combine(std::size_t &seed, std::size_t value) {
-    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-  }
-
   static std::size_t operand_hash(const Stmt *stmt) {
     std::size_t hash_code{0};
     // Use the dynamic type via `typeid(*stmt)` - `typeid(stmt)` operates on the pointer expression and returns the
     // `Stmt*` static type for every input, collapsing every statement class into the same hash component.
     auto hash_type = std::hash<std::type_index>{}(std::type_index(typeid(*stmt)));
-    if (auto *ptr = stmt->cast<GlobalPtrStmt>()) {
-      // Equal global addresses necessarily belong to the same SNode. Preserve the value-based index comparison while
-      // avoiding comparisons across unrelated fields.
-      hash_combine(hash_code, std::hash<int>{}(ptr->snode->id));
-      return hash_type ^ hash_code;
-    }
-    if (auto *ptr = stmt->cast<ExternalPtrStmt>()) {
-      // Equal external addresses necessarily use the same flattened argument slot, primal/grad storage, and index
-      // count (see alias_analysis). Index expression pointer identity is deliberately excluded: equivalent indices may
-      // still be represented by distinct statements until this CSE fixpoint merges their arithmetic.
-      if (auto *base = ptr->base_ptr->cast<ArgLoadStmt>()) {
-        for (int arg_id : base->arg_id) {
-          hash_combine(hash_code, std::hash<int>{}(arg_id));
-        }
-        hash_combine(hash_code, std::hash<bool>{}(ptr->is_grad));
-        hash_combine(hash_code, std::hash<std::size_t>{}(ptr->indices.size()));
-        return hash_type ^ hash_code;
-      }
-      return hash_type;
-    }
-    if (stmt->is<LoopUniqueStmt>()) {
-      // LoopUnique's same-value check can match distinct input statements, so it remains type-bucketed.
+    if (stmt->is<GlobalPtrStmt>() || stmt->is<ExternalPtrStmt>() || stmt->is<LoopUniqueStmt>()) {
+      // special cases in common_statement_eliminable(): these bucket by type alone so every same-typed candidate is
+      // compared via the value-based check below (definitely_same_address / same_value), rather than by operand-pointer
+      // identity. ExternalPtr needs this too: two accesses to the same ndarray address can have distinct index-compute
+      // statements (not yet merged), so operand-address hashing would split them into separate buckets and miss the
+      // merge -- leaving the read/write pointers split for cache_loop_invariant_global_vars (the ndarray break-flag).
       return hash_type;
     }
     auto op = stmt->get_operands();
