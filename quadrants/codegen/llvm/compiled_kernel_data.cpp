@@ -1,10 +1,21 @@
 #include "quadrants/codegen/llvm/compiled_kernel_data.h"
 
-#include "llvm/IR/Verifier.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
 
 namespace quadrants::lang {
+
+namespace {
+
+// CompiledKernelDataFile predates LLVM bitcode storage and has no independent
+// payload-format field. Prefix new payloads so current builds can load bitcode
+// without probing/parsing twice while old textual-IR artifacts remain readable.
+constexpr char kBitcodeCachePrefix[] = "QDBC1";
+
+}  // namespace
 
 static std::unique_ptr<CompiledKernelData> new_llvm_compiled_kernel_data() {
   return std::make_unique<LLVM::CompiledKernelData>();
@@ -58,13 +69,29 @@ CompiledKernelData::Err CompiledKernelData::load_impl(const CompiledKernelDataFi
   } catch (const liong::json::JsonException &) {
     return Err::kParseMetadataFailed;
   }
-  llvm::SMDiagnostic err;
-  auto ret = llvm::parseAssemblyString(file.src_code(), err, llvm_ctx_);
-  if (!ret) {  // File not found or Parse failed
-    QD_DEBUG("Fail to parse llvm::Module from string: {}", err.getMessage().str());
-    return Err::kParseSrcCodeFailed;
+
+  const llvm::StringRef source(file.src_code());
+  const llvm::StringRef bitcode_prefix(kBitcodeCachePrefix);
+  std::unique_ptr<llvm::Module> module;
+  if (source.size() >= bitcode_prefix.size() && source.take_front(bitcode_prefix.size()) == bitcode_prefix) {
+    auto ret = llvm::parseBitcodeFile(
+        llvm::MemoryBufferRef(source.drop_front(bitcode_prefix.size()), "cached_kernel_bitcode"), llvm_ctx_);
+    if (!ret) {
+      QD_DEBUG("Fail to parse cached LLVM bitcode");
+      llvm::consumeError(ret.takeError());
+      return Err::kParseSrcCodeFailed;
+    }
+    module = std::move(ret.get());
+  } else {
+    // Backward compatibility for artifacts written before the bitcode format.
+    llvm::SMDiagnostic err;
+    module = llvm::parseAssemblyString(source, err, llvm_ctx_);
+    if (!module) {
+      QD_DEBUG("Fail to parse llvm::Module from string: {}", err.getMessage().str());
+      return Err::kParseSrcCodeFailed;
+    }
   }
-  data_.compiled_data.module = std::move(ret);
+  data_.compiled_data.module = std::move(module);
   llvm::Module *mod = data_.compiled_data.module.get();
   mod->setModuleIdentifier("kernel");
   return Err::kNoError;
@@ -77,10 +104,14 @@ CompiledKernelData::Err CompiledKernelData::dump_impl(CompiledKernelDataFile &fi
   } catch (const liong::json::JsonException &) {
     return Err::kSerMetadataFailed;
   }
-  std::string str;
-  llvm::raw_string_ostream oss(str);
-  data_.compiled_data.module->print(oss, /*AAW=*/nullptr);
-  file.set_src_code(std::move(str));
+  std::string bitcode;
+  llvm::raw_string_ostream oss(bitcode);
+  llvm::WriteBitcodeToFile(*data_.compiled_data.module, oss);
+  oss.flush();
+
+  std::string payload(kBitcodeCachePrefix);
+  payload.append(bitcode);
+  file.set_src_code(std::move(payload));
   return Err::kNoError;
 }
 
