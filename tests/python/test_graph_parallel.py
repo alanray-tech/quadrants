@@ -199,6 +199,8 @@ def test_graph_parallel_back_to_back_regions_serial_sections_keep_join():
         arr.from_numpy(np.zeros(1, dtype=np.float32))
 
     k(x, y, a, b)
+    # The graph launch is asynchronous and this kernel ends at a fork/join leaf; wait for every branch before host reads.
+    qd.sync()
 
     if _on_cuda():
         # One empty join node per context (two contexts -> two joins). The merge bug this guards would build a
@@ -843,11 +845,9 @@ def test_graph_parallel_section_graph_do_while_raises():
 @test_utils.test()
 def test_graph_parallel_section_checkpoint_raises():
     """A qd.graph.parallel() section body must be straight-line task work: a qd.checkpoint nested inside a section is
-    rejected. Its tasks carry checkpoint_id >= 0, which the CUDA fork/join path excludes from the section's run,
-    silently serializing the section instead of failing at compile time. This section-body rule is a structural AST
-    check (`_validate_parallel_section_body`), independent of the kernel's `checkpoints=` mode, so a plain graph kernel
-    is enough to exercise it -- and it must be, since a `checkpoints=True` kernel is rejected earlier at the region
-    itself (see test_graph_parallel_context_in_checkpoints_kernel_raises)."""
+    rejected. The supported composition is the reverse: one complete qd.graph.parallel_context() region may be owned by
+    an enclosing qd.checkpoint(). This section-body rule is a structural AST check independent of the kernel's
+    `checkpoints=` mode, so a plain graph kernel is enough to exercise it."""
 
     @qd.kernel(graph=True)
     def k(x: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
@@ -864,16 +864,10 @@ def test_graph_parallel_section_checkpoint_raises():
 
 
 @test_utils.test()
-def test_graph_parallel_context_in_checkpoints_kernel_raises():
-    """A qd.graph.parallel_context() region is not supported in a @qd.kernel(graph=True, checkpoints=True) kernel and
-    must be rejected at compile time. A region's section for-loops escape the checkpoint net two ways, both wrong:
-    CheckpointTransformer.auto_wrap_for_loops does not recurse into the region's `with` block, so the sections are not
-    auto-wrapped into implicit checkpoints; and an explicit qd.checkpoint inside a section is itself rejected. Either
-    way every section task is emitted with checkpoint_id == -1 -- the prologue bucket that runs unconditionally on every
-    launch, ignoring the yield/resume model (a resume that should skip the region, or a yield before it, still runs it).
-    Wrapping the whole region in an explicit checkpoint doesn't rescue it either: the sections would then carry
-    cp_id >= 0, which build_level's fork/join path excludes (checkpoint_id < 0), silently serializing them. Until
-    regions participate in the checkpoint/resume model we reject the combination rather than miscompile it."""
+def test_graph_parallel_context_outside_checkpoint_raises():
+    """In a checkpoints=True kernel a fork/join region must belong to an explicit checkpoint. Auto-wrap deliberately
+    does not recurse into the region, so accepting a bare region would put its tasks in the unconditional prologue and
+    make them run even when resume skips their source position."""
 
     @qd.kernel(graph=True, checkpoints=True)
     def k(x: qd.types.ndarray(qd.i32, ndim=1)):
@@ -883,8 +877,89 @@ def test_graph_parallel_context_in_checkpoints_kernel_raises():
                     x[i] = x[i] + 1
 
     x = qd.ndarray(qd.i32, shape=(16,))
-    with pytest.raises(qd.QuadrantsSyntaxError, match="checkpoints=True"):
+    with pytest.raises(qd.QuadrantsSyntaxError, match="must be inside an explicit qd.checkpoint"):
         k(x)
+
+
+@test_utils.test()
+def test_graph_parallel_context_inside_checkpoint_yield_resume():
+    """A checkpoint owns its complete fork/join region. Both sections run before the checkpoint yield check, later
+    checkpoints are skipped after a yield, and resuming from the later checkpoint skips the earlier parallel region."""
+    n = 1024
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(
+        x: qd.types.ndarray(qd.i32, ndim=1),
+        y: qd.types.ndarray(qd.i32, ndim=1),
+        z: qd.types.ndarray(qd.i32, ndim=1),
+        first_flag: qd.types.ndarray(qd.i32, ndim=0),
+        second_flag: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        with qd.checkpoint(10, yield_on=first_flag):
+            with qd.graph.parallel_context():
+                with qd.graph.parallel():
+                    for i in range(x.shape[0]):
+                        x[i] = x[i] + 1
+                with qd.graph.parallel():
+                    for i in range(y.shape[0]):
+                        y[i] = y[i] + 2
+        with qd.checkpoint(20, yield_on=second_flag):
+            for i in range(z.shape[0]):
+                z[i] = x[i] + y[i]
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def serial_reference(
+        x: qd.types.ndarray(qd.i32, ndim=1),
+        y: qd.types.ndarray(qd.i32, ndim=1),
+        z: qd.types.ndarray(qd.i32, ndim=1),
+        first_flag: qd.types.ndarray(qd.i32, ndim=0),
+        second_flag: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        with qd.checkpoint(10, yield_on=first_flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 1
+            for i in range(y.shape[0]):
+                y[i] = y[i] + 2
+        with qd.checkpoint(20, yield_on=second_flag):
+            for i in range(z.shape[0]):
+                z[i] = x[i] + y[i]
+
+    x = qd.ndarray(qd.i32, shape=(n,))
+    y = qd.ndarray(qd.i32, shape=(n,))
+    z = qd.ndarray(qd.i32, shape=(n,))
+    first_flag = qd.ndarray(qd.i32, shape=())
+    second_flag = qd.ndarray(qd.i32, shape=())
+    for arr in (x, y, z):
+        arr.from_numpy(np.zeros(n, dtype=np.int32))
+    first_flag.from_numpy(np.array(1, dtype=np.int32))
+    second_flag.from_numpy(np.array(0, dtype=np.int32))
+
+    status = k(x, y, z, first_flag, second_flag)
+    parallel_nodes = _graph_num_nodes() if _on_cuda() else 0
+    parallel_tasks = _num_offloaded_tasks() if _on_cuda() else 0
+    assert status.yielded
+    assert status.checkpoint == 10
+    np.testing.assert_array_equal(x.to_numpy(), np.ones(n, dtype=np.int32))
+    np.testing.assert_array_equal(y.to_numpy(), np.full(n, 2, dtype=np.int32))
+    np.testing.assert_array_equal(z.to_numpy(), np.zeros(n, dtype=np.int32))
+
+    if _on_cuda():
+        for arr in (x, y, z):
+            arr.from_numpy(np.zeros(n, dtype=np.int32))
+        serial_reference(x, y, z, first_flag, second_flag)
+        serial_nodes = _graph_num_nodes()
+        serial_tasks = _num_offloaded_tasks()
+        assert parallel_nodes - parallel_tasks == serial_nodes - serial_tasks + 1
+
+    # Resume at checkpoint 20. Values chosen here prove checkpoint 10's parallel region did not run again.
+    x.from_numpy(np.full(n, 4, dtype=np.int32))
+    y.from_numpy(np.full(n, 5, dtype=np.int32))
+    first_flag.from_numpy(np.array(0, dtype=np.int32))
+    status = k.resume(x, y, z, first_flag, second_flag, from_checkpoint=20)
+    assert not status.yielded
+    np.testing.assert_array_equal(x.to_numpy(), np.full(n, 4, dtype=np.int32))
+    np.testing.assert_array_equal(y.to_numpy(), np.full(n, 5, dtype=np.int32))
+    np.testing.assert_array_equal(z.to_numpy(), np.full(n, 9, dtype=np.int32))
 
 
 @test_utils.test()
