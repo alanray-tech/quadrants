@@ -6,6 +6,7 @@
 #include "quadrants/analysis/gather_uniquely_accessed_pointers.h"
 #include "quadrants/analysis/mesh_bls_analyzer.h"
 #include <atomic>
+#include <cstddef>
 #include <optional>
 #include <unordered_set>
 #include <unordered_map>
@@ -189,6 +190,15 @@ struct DiffPtrResult {
  *   The second statement to check.
  */
 DiffPtrResult value_diff_ptr_index(Stmt *val1, Stmt *val2);
+
+/**
+ * Hashes the canonical value recognized by value_diff_ptr_index().
+ *
+ * If value_diff_ptr_index(a, b) is certainly zero, this function is
+ * guaranteed to return the same value for a and b. Hash collisions are
+ * allowed and are resolved by the full analysis.
+ */
+std::size_t value_diff_ptr_index_hash(Stmt *val);
 
 std::unordered_set<Stmt *> constexpr_prop(Block *block, std::function<bool(Stmt *)> is_const_seed);
 

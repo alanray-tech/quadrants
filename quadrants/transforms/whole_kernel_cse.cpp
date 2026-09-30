@@ -119,17 +119,41 @@ class WholeKernelCSE : public BasicStmtVisitor {
     visited_.insert(stmt->instance_id);
   }
 
+  static void hash_combine(std::size_t &seed, std::size_t value) {
+    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  }
+
   static std::size_t operand_hash(const Stmt *stmt) {
     std::size_t hash_code{0};
     // Use the dynamic type via `typeid(*stmt)` - `typeid(stmt)` operates on the pointer expression and returns the
     // `Stmt*` static type for every input, collapsing every statement class into the same hash component.
     auto hash_type = std::hash<std::type_index>{}(std::type_index(typeid(*stmt)));
-    if (stmt->is<GlobalPtrStmt>() || stmt->is<ExternalPtrStmt>() || stmt->is<LoopUniqueStmt>()) {
-      // special cases in common_statement_eliminable(): these bucket by type alone so every same-typed candidate is
-      // compared via the value-based check below (definitely_same_address / same_value), rather than by operand-pointer
-      // identity. ExternalPtr needs this too: two accesses to the same ndarray address can have distinct index-compute
-      // statements (not yet merged), so operand-address hashing would split them into separate buckets and miss the
-      // merge -- leaving the read/write pointers split for cache_loop_invariant_global_vars (the ndarray break-flag).
+    if (auto *ptr = stmt->cast<GlobalPtrStmt>()) {
+      // definitely_same_address requires the same SNode and a certainly-zero value_diff for every index. Hash that
+      // exact coarse identity and leave collisions to the full check below.
+      hash_combine(hash_code, std::hash<int>{}(ptr->snode->id));
+      for (Stmt *index : ptr->indices) {
+        hash_combine(hash_code, irpass::analysis::value_diff_ptr_index_hash(index));
+      }
+      return hash_type ^ hash_code;
+    }
+    if (auto *ptr = stmt->cast<ExternalPtrStmt>()) {
+      // Two accesses to the same ndarray address may have distinct index-compute statements. The canonical value-diff
+      // hash preserves those matches while separating indices that definitely cannot compare equal.
+      if (auto *base = ptr->base_ptr->cast<ArgLoadStmt>()) {
+        for (int arg_id : base->arg_id) {
+          hash_combine(hash_code, std::hash<int>{}(arg_id));
+        }
+        hash_combine(hash_code, std::hash<bool>{}(ptr->is_grad));
+        for (Stmt *index : ptr->indices) {
+          hash_combine(hash_code, irpass::analysis::value_diff_ptr_index_hash(index));
+        }
+        return hash_type ^ hash_code;
+      }
+      return hash_type;
+    }
+    if (stmt->is<LoopUniqueStmt>()) {
+      // LoopUnique's same-value check can match distinct input statements, so it remains type-bucketed.
       return hash_type;
     }
     auto op = stmt->get_operands();
