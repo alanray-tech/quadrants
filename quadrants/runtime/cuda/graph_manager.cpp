@@ -513,22 +513,34 @@ void *GraphManager::build_level(int parent_id,
       continue;
     }
 
-    // --- A qd.graph_parallel_context() fork/join region: a contiguous run of this level's direct, non-checkpoint
+    // --- A qd.graph_parallel_context() fork/join region: a contiguous run of this level's direct
     // tasks tagged with a nonzero stream_parallel_group_id (set by qd.graph_parallel()). Each distinct group id is one
     // qd.graph_parallel section; the qd.graph_parallel sections fork from the region's entry (`prev_node`), run their
     // tasks in order, and join into a single empty node so downstream work waits for all of them. CUDA's graph
-    // executor schedules the independent qd.graph_parallel section chains on separate streams -> real overlap.
+    // executor schedules the independent qd.graph_parallel section chains on separate streams -> real overlap. The
+    // run may be outside checkpoints or inside the conditional body of the currently active checkpoint.
     //
     // The run is bounded to a single region by graph_parallel_region_id: two qd.graph_parallel_context() regions
     // written back-to-back (no serial task between them to break the run) carry distinct region ids, so each builds
     // its own fork/join with its own join node. Without this guard the second region's sections would fork from the
     // same entry as the first's and could run concurrently with -- and race -- the first region's work. ---
-    if (tasks[cursor].stream_parallel_group_id != 0 && tasks[cursor].checkpoint_id < 0) {
-      // Bound the run to a single region/level/checkpoint via the shared boundary helper (see
-      // next_stream_parallel_run in llvm_compiled_data.h), the same definition the CUDA/AMDGPU streaming launchers use.
-      // tasks[cursor] is a parent_id-level, non-checkpoint task here (the task_level and checkpoint_id filters above),
-      // so the helper's level / checkpoint match reduce to the old `== parent_id` / `checkpoint_id < 0` conditions.
-      const int run_end = (int)next_stream_parallel_run(tasks, (std::size_t)cursor, (std::size_t)end);
+    const int parallel_checkpoint_id = tasks[cursor].checkpoint_id;
+    if (tasks[cursor].stream_parallel_group_id != 0 &&
+        (parallel_checkpoint_id < 0 || parallel_checkpoint_id == active_checkpoint_id)) {
+      // Bound the run to one region and level. Inside a checkpoint body, admit both the checkpoint's work tasks and
+      // interleaved cp_id=-1 pure helper tasks (dynamic range-bound computation). The offloader deliberately leaves
+      // those helpers unconditional so resume cannot gate away a hoisted value shared by a later checkpoint. At this
+      // point the recursive [cursor, end) slice is already bounded by the active checkpoint, so admitting the helpers
+      // preserves that policy while allowing each section's helper + range task to remain one fork branch.
+      int run_end = cursor + 1;
+      while (run_end < end && tasks[run_end].stream_parallel_group_id != 0 &&
+             tasks[run_end].graph_do_while_level_id == task_level &&
+             tasks[run_end].graph_parallel_region_id == tasks[cursor].graph_parallel_region_id &&
+             ((active_checkpoint_id < 0 && tasks[run_end].checkpoint_id == parallel_checkpoint_id) ||
+              (active_checkpoint_id >= 0 &&
+               (tasks[run_end].checkpoint_id < 0 || tasks[run_end].checkpoint_id == active_checkpoint_id)))) {
+        ++run_end;
+      }
       // Bucket the run's tasks by qd.graph_parallel section id, preserving first-seen (declaration) order.
       std::vector<int> group_ids;
       std::vector<std::vector<int>> parallel_sections;
@@ -718,7 +730,6 @@ bool GraphManager::try_launch(int launch_id,
   if (cp_plan.reject_graph_build) {
     return false;
   }
-
   CUDAContext::get_instance().make_current();
 
   CachedGraph cached(ctx.arg_buffer_size, ctx.result_buffer_size, (int)ctx.graph_do_while_levels.size(),

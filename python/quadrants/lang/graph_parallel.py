@@ -39,6 +39,8 @@ def graph_parallel_context():
 
     Restrictions (enforced at kernel compile time):
       - Must be used inside ``@qd.kernel(graph=True)``.
+      - In a ``checkpoints=True`` kernel, the complete region must be inside one explicit
+        ``qd.checkpoint(...)``; that checkpoint owns the fork/join for yield and resume.
       - The region body may contain only ``with qd.graph.parallel():`` blocks.
       - Regions cannot be nested, and a ``qd.graph.parallel`` section body must be straight-line task work
         (no nested ``qd.graph.do_while``, ``qd.checkpoint``, or ``qd.graph.parallel_context``).
