@@ -388,6 +388,14 @@ std::unique_ptr<Stmt> OffloadedStmt::clone() const {
     new_stmt->tls_prologue = tls_prologue->clone();
     new_stmt->tls_prologue->set_parent_stmt(new_stmt.get());
   }
+  if (range_begin) {
+    new_stmt->range_begin = range_begin->clone();
+    new_stmt->range_begin->set_parent_stmt(new_stmt.get());
+  }
+  if (range_end) {
+    new_stmt->range_end = range_end->clone();
+    new_stmt->range_end->set_parent_stmt(new_stmt.get());
+  }
   if (mesh_prologue) {
     new_stmt->mesh_prologue = mesh_prologue->clone();
     new_stmt->mesh_prologue->set_parent_stmt(new_stmt.get());
@@ -430,6 +438,10 @@ std::unique_ptr<Stmt> OffloadedStmt::clone() const {
 void OffloadedStmt::all_blocks_accept(IRVisitor *visitor, bool skip_mesh_prologue) {
   if (tls_prologue)
     tls_prologue->accept(visitor);
+  if (range_begin)
+    range_begin->accept(visitor);
+  if (range_end)
+    range_end->accept(visitor);
   if (mesh_prologue && !skip_mesh_prologue)
     mesh_prologue->accept(visitor);
   if (bls_prologue)

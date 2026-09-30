@@ -104,6 +104,16 @@ class DIE : public IRVisitor {
     if (stmt->end_stmt && used.find(stmt->end_stmt->instance_id) == used.end()) {
       used.insert(stmt->end_stmt->instance_id);
     }
+    // Dynamic CUDA bounds are proper owned blocks. Their final statements are
+    // task outputs rather than ordinary SSA users, so seed DIE from those
+    // values and let normal operand traversal retain the complete expression
+    // DAG.
+    if (stmt->range_begin && !stmt->range_begin->statements.empty()) {
+      used.insert(stmt->range_begin->back()->instance_id);
+    }
+    if (stmt->range_end && !stmt->range_end->statements.empty()) {
+      used.insert(stmt->range_end->back()->instance_id);
+    }
     stmt->all_blocks_accept(this, true);
   }
 };

@@ -1405,6 +1405,13 @@ class OffloadedStmt : public Stmt {
   std::vector<int> index_offsets;
 
   std::unique_ptr<Block> tls_prologue;
+  // Device-side expressions for dynamic range bounds. CUDA range-for kernels
+  // evaluate these blocks in the worker-kernel entry function, then feed each
+  // block's final value directly to the grid-stride loop. Keeping the
+  // expressions inside the consuming offload avoids a separate one-thread
+  // serial kernel and global-temporary round trip.
+  std::unique_ptr<Block> range_begin;
+  std::unique_ptr<Block> range_end;
   std::unique_ptr<Block> mesh_prologue;  // mesh-for only block
   std::unique_ptr<Block> bls_prologue;
   std::unique_ptr<Block> body;
