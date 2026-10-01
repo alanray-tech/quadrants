@@ -213,6 +213,8 @@ def unpack_ast_struct_expressions(tree: ast.Module, struct_locals: set[str]) -> 
     # __qd_my_struct_ab__qd_struct_cd__qd_struct_ef__qd_f
     Name(id='__qd_my_struct_ab__qd_struct_cd__qd_struct_ef__qd_f', ctx=Load()
     """
+    if not struct_locals:
+        return tree
     transformer = FlattenAttributeNameTransformer(struct_locals=struct_locals)
     new_tree = transformer.visit(tree)
     ast.fix_missing_locations(new_tree)
