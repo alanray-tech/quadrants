@@ -62,7 +62,7 @@ class PtxCache final {
   void clean_offline_cache(offline_cache::CleanCachePolicy policy, int max_bytes, double cleaning_factor) const;
   void store_ptx(const std::string &cache_key, const std::string &ptx);
   std::optional<std::string> load_ptx(const std::string &cache_key);
-  std::string make_cache_key(const std::string &llvm_ir, bool use_fast_math) const;
+  std::string make_cache_key(const std::string &llvm_module_fingerprint, bool use_fast_math) const;
 
  private:
   std::string make_filename(const std::string &kernel_key) const;
