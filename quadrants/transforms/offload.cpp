@@ -7,7 +7,9 @@
 
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 namespace quadrants::lang {
 
@@ -30,6 +32,102 @@ bool demotable_axis_load(Stmt *stmt) {
   }
   return true;
 }
+
+bool is_cuda_range_bound_expression(Stmt *stmt) {
+  if (stmt->has_global_side_effect()) {
+    return false;
+  }
+  if (auto *load = stmt->cast<GlobalLoadStmt>(); load && load->is_volatile) {
+    // A volatile range bound is an explicit request to preserve one ordered
+    // snapshot. Evaluating it independently in every worker thread would
+    // change that synchronization contract.
+    return false;
+  }
+  return stmt->is<DecorationStmt>() || stmt->is<UnaryOpStmt>() || stmt->is<ArgLoadStmt>() || stmt->is<BinaryOpStmt>() ||
+         stmt->is<TernaryOpStmt>() || stmt->is<ExternalPtrStmt>() || stmt->is<GlobalPtrStmt>() ||
+         stmt->is<MatrixOfGlobalPtrStmt>() || stmt->is<MatrixPtrStmt>() ||
+         stmt->is<ExternalTensorShapeAlongAxisStmt>() || stmt->is<ExternalTensorBasePtrStmt>() ||
+         stmt->is<RangeAssumptionStmt>() || stmt->is<LoopUniqueStmt>() || stmt->is<GlobalLoadStmt>() ||
+         stmt->is<ConstStmt>() || stmt->is<GetElementStmt>() || stmt->is<IntegerOffsetStmt>() ||
+         stmt->is<LinearizeStmt>() || stmt->is<GetRootStmt>() || stmt->is<SNodeLookupStmt>() || stmt->is<GetChStmt>() ||
+         stmt->is<MatrixInitStmt>();
+}
+
+bool collect_cuda_range_bound_dag(Stmt *stmt,
+                                  Block *source,
+                                  std::unordered_set<Stmt *> &visiting,
+                                  std::unordered_set<Stmt *> &collected,
+                                  std::vector<Stmt *> &postorder) {
+  if (stmt == nullptr || stmt->parent != source || !is_cuda_range_bound_expression(stmt)) {
+    return false;
+  }
+  if (collected.find(stmt) != collected.end()) {
+    return true;
+  }
+  if (!visiting.insert(stmt).second) {
+    return false;
+  }
+  for (Stmt *operand : stmt->get_operands()) {
+    if (operand != nullptr && !collect_cuda_range_bound_dag(operand, source, visiting, collected, postorder)) {
+      visiting.erase(stmt);
+      return false;
+    }
+  }
+  visiting.erase(stmt);
+  collected.insert(stmt);
+  postorder.push_back(stmt);
+  return true;
+}
+
+std::unique_ptr<Block> clone_cuda_range_bound(Stmt *value, Block *source) {
+  std::unordered_set<Stmt *> visiting;
+  std::unordered_set<Stmt *> collected;
+  std::vector<Stmt *> postorder;
+  if (!collect_cuda_range_bound_dag(value, source, visiting, collected, postorder)) {
+    return nullptr;
+  }
+
+  auto result = std::make_unique<Block>();
+  std::unordered_map<Stmt *, Stmt *> clones;
+  for (Stmt *original : postorder) {
+    auto clone = original->clone();
+    for (int i = 0; i < clone->num_operands(); ++i) {
+      Stmt *operand = original->operand(i);
+      if (operand != nullptr) {
+        auto it = clones.find(operand);
+        QD_ASSERT(it != clones.end());
+        clone->set_operand(i, it->second);
+      }
+    }
+    clones[original] = result->insert(std::move(clone));
+  }
+  QD_ASSERT(!result->statements.empty());
+  QD_ASSERT(clones.at(value) == result->back());
+  return result;
+}
+
+class DetectAdStackAlloca : public BasicStmtVisitor {
+ public:
+  using BasicStmtVisitor::visit;
+
+  DetectAdStackAlloca() {
+    invoke_default_visitor = true;
+  }
+
+  void visit(Stmt *stmt) override {
+    found_ = found_ || stmt->is<AdStackAllocaStmt>();
+  }
+
+  static bool run(IRNode *root) {
+    DetectAdStackAlloca detector;
+    root->accept(&detector);
+    return detector.found_;
+  }
+
+ private:
+  bool found_{false};
+};
+
 class SquashPtrOffset : public IRVisitor {
  public:
   SquashPtrOffset() {
@@ -157,6 +255,22 @@ class Offloader {
       auto &stmt = root_statements[i];
       // Note that stmt->parent is root_block, which doesn't contain stmt now.
       if (auto s = stmt->cast<RangeForStmt>(); s && !s->strictly_serialized) {
+        // A CUDA grid-stride kernel does not need a host- or helper-kernel-
+        // resolved launch extent. Clone safe scalar bound expressions into the
+        // consuming task and let every worker evaluate the live device value
+        // before entering gpu_parallel_range_for. Reverse-mode tasks that own
+        // an adstack retain the global-temporary path because their launcher
+        // still needs the exact dynamic extent to size the stack heap.
+        std::unique_ptr<Block> range_begin;
+        std::unique_ptr<Block> range_end;
+        if (arch == Arch::cuda && !DetectAdStackAlloca::run(s->body.get())) {
+          if (!s->begin->is<ConstStmt>()) {
+            range_begin = clone_cuda_range_bound(s->begin, pending_serial_statements->body.get());
+          }
+          if (!s->end->is<ConstStmt>()) {
+            range_end = clone_cuda_range_bound(s->end, pending_serial_statements->body.get());
+          }
+        }
         GraphRegionTag pre_for_tag{s->graph_do_while_level_id, s->stream_parallel_group_id};
         pre_for_tag.graph_parallel_region_id = s->graph_parallel_region_id;
         assemble_serial_statements(pre_for_tag);
@@ -171,6 +285,9 @@ class Offloader {
         if (auto val = s->begin->cast<ConstStmt>()) {
           offloaded->const_begin = true;
           offloaded->begin_value = val->val.val_int32();
+        } else if (range_begin) {
+          range_begin->set_parent_stmt(offloaded.get());
+          offloaded->range_begin = std::move(range_begin);
         } else {
           offloaded_ranges.begin_stmts.insert(std::make_pair(offloaded.get(), s->begin));
         }
@@ -178,6 +295,9 @@ class Offloader {
         if (auto val = s->end->cast<ConstStmt>()) {
           offloaded->const_end = true;
           offloaded->end_value = val->val.val_int32();
+        } else if (range_end) {
+          range_end->set_parent_stmt(offloaded.get());
+          offloaded->range_end = std::move(range_end);
         } else {
           if ((arch == Arch::vulkan || arch == Arch::metal) && demotable_axis_load(s->end)) {
             // TODO: We need to update codegen for each backend gradually
@@ -548,14 +668,14 @@ class FixCrossOffloadReferences : public BasicStmtVisitor {
     if (stmt->body)
       stmt->body->accept(this);
     if (stmt->task_type == OffloadedStmt::TaskType::range_for) {
-      if (!stmt->const_begin) {
+      if (!stmt->const_begin && !stmt->range_begin) {
         QD_ASSERT(offloaded_ranges_->begin_stmts.find(stmt) != offloaded_ranges_->begin_stmts.end())
         QD_ASSERT_INFO(local_to_global_offset_.find(offloaded_ranges_->begin_stmts.find(stmt)->second) !=
                            local_to_global_offset_.end(),
                        "Begin fails.")
         stmt->begin_offset = local_to_global_offset_.at(offloaded_ranges_->begin_stmts.find(stmt)->second);
       }
-      if (!stmt->const_end) {
+      if (!stmt->const_end && !stmt->range_end) {
         if (stmt->end_stmt) {
           stmt->end_stmt->accept(this);
           stmt->end_offset = 0;

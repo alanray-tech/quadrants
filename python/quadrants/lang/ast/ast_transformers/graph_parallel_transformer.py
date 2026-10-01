@@ -71,20 +71,18 @@ class GraphParallelTransformer:
         kernel = ctx.global_context.current_kernel
         if kernel is None or not kernel.use_graph:
             raise QuadrantsSyntaxError("qd.graph.parallel_context() requires @qd.kernel(graph=True)")
-        # A region cannot coexist with the checkpoint/resume model. Its section for-loops escape the checkpoint net:
-        # CheckpointTransformer.auto_wrap_for_loops does not recurse into this `with`, and a section body rejects an
-        # explicit qd.checkpoint, so every section task is emitted with checkpoint_id == -1 -- the prologue bucket that
-        # runs unconditionally on every launch, ignoring yield/resume (a resume that should skip the region, or a yield
-        # before it, would still run it). Wrapping the whole region in an explicit checkpoint doesn't help either: the
-        # sections would then carry cp_id >= 0, which the fork/join path in GraphManager::build_level excludes
-        # (checkpoint_id < 0), silently serializing them. There is no correct lowering today, so reject the combination
-        # rather than miscompile it; making regions checkpoint-aware is a separate feature (see graph.md).
-        if kernel.use_checkpoints:
+        # In a checkpoints=True kernel a region must be lexically inside an explicit qd.checkpoint. The checkpoint
+        # transform leaves ASTBuilder's current checkpoint active while this body is lowered, so every section task
+        # carries the same non-negative checkpoint_id. GraphManager then builds the fork/join inside that checkpoint's
+        # conditional body; resume skips or replays the entire region exactly like ordinary checkpoint work.
+        #
+        # A region outside qd.checkpoint remains invalid: auto_wrap_for_loops deliberately does not recurse into this
+        # `with`, so its section tasks would carry checkpoint_id == -1 and run unconditionally on resume.
+        if kernel.use_checkpoints and not getattr(ctx, "_in_checkpoint", False):
             raise QuadrantsSyntaxError(
-                "qd.graph.parallel_context() is not supported in a @qd.kernel(graph=True, checkpoints=True) kernel: a "
-                "fork/join region does not participate in the checkpoint/resume model (its sections would run "
-                "unconditionally on every launch, ignoring yield/resume). Use qd.graph.parallel_context() only in a "
-                "non-checkpoints kernel, or express the work as ordinary qd.checkpoint() stages."
+                "qd.graph.parallel_context() in a @qd.kernel(graph=True, checkpoints=True) kernel must be inside an "
+                "explicit qd.checkpoint(...): the checkpoint owns the complete fork/join region for yield/resume. "
+                "Move the region into a qd.checkpoint() block."
             )
         if getattr(ctx, "_in_graph_parallel_context", False):
             raise QuadrantsSyntaxError("qd.graph.parallel_context() regions cannot be nested")

@@ -52,6 +52,7 @@ init_args = {
     "log_level": ["info", ["error", "warn", "info", "debug", "trace"]],
     "gdb_trigger": [False, TF],
     "advanced_optimization": [True, TF],
+    "external_optimization_level": [3, [0, 1, 2, 3]],
     "debug": [False, TF],
     "print_ir": [False, TF],
     "fast_math": [True, TF],

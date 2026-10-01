@@ -27,6 +27,10 @@ For normal use, leave it at `True`; the caches are the main reason a repeated ru
 
 Whether to run the control-flow-graph optimization (an internal compile-time optimization of your kernel's branches and loops). Default `True`. Setting it to `False` makes compilation up to 6x faster while costing 1-5% of runtime speed; consider disabling it if compile time is the bottleneck and the runtime delta is acceptable.
 
+### `external_optimization_level`
+
+Backend compiler optimization level from `0` through `3`. The LLVM backends map this to `O0` through `O3`, including the matching target code-generation level. The default is `3`. Lower levels can substantially reduce cold compilation time for very large kernels at the cost of runtime performance. The value is included in the offline-cache key, so changing it creates a separate cached kernel.
+
 ### `fast_math`
 
 Whether to enable relaxed floating-point optimizations (fusing multiply-add operations, and dropping NaN / infinity / signed-zero guarantees). Default `True`. Disable when investigating numerical anomalies or running deterministic-tolerance tests.
