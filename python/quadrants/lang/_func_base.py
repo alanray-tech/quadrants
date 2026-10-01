@@ -41,7 +41,7 @@ from quadrants.lang._final_dataclass_fields import (
 )
 from quadrants.lang._ndarray import Ndarray
 from quadrants.lang._signature import get_func_signature
-from quadrants.lang._wrap_inspect import get_source_info_and_src
+from quadrants.lang._wrap_inspect import FunctionSourceInfo, get_source_info_and_src
 from quadrants.lang.ast import ASTTransformerFuncContext
 from quadrants.lang.buffer_view import BufferView as BufferViewInstance
 from quadrants.lang.exception import (
@@ -230,6 +230,10 @@ class FuncBase:
         self.return_type = None
         # Shared by every AST transform of this function; see ASTTransformerFuncContext.memoized_get_pos_info.
         self.pos_info_cache: dict[tuple, str] = {}
+        # A FuncBase's Python function object and source location are immutable for its lifetime. Large graph kernels
+        # may inline the same function thousands of times in each pruning/materialization pass, so retain the
+        # inspect/textwrap product and only parse a fresh mutable AST for each inline site.
+        self._source_cache: tuple[FunctionSourceInfo, list[str], str] | None = None
 
         self.check_parameter_annotations()
 
@@ -390,9 +394,16 @@ class FuncBase:
         currently_compiling_materialize_key=None,  # has value when called from Kernel.materialize
         pass_idx: int | None = None,  # has value when called from Kernel.materialize
     ) -> tuple[ast.Module, ASTTransformerFuncContext]:
-        function_source_info, src = get_source_info_and_src(self.func)
-        src = [textwrap.fill(line, tabsize=4, width=9999) for line in src]
-        tree = ast.parse(textwrap.dedent("\n".join(src)))
+        if self._source_cache is None:
+            function_source_info, source_lines = get_source_info_and_src(self.func)
+            source_lines = [textwrap.fill(line, tabsize=4, width=9999) for line in source_lines]
+            self._source_cache = (
+                function_source_info,
+                source_lines,
+                textwrap.dedent("\n".join(source_lines)),
+            )
+        function_source_info, src, source_text = self._source_cache
+        tree = ast.parse(source_text)
 
         func_body = tree.body[0]
         func_body.decorator_list = []  # type: ignore , kick that can down the road...
