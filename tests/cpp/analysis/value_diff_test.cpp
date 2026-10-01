@@ -57,32 +57,6 @@ TEST(ValueDiffPtrIndex, BinOpButDiff) {
   EXPECT_FALSE(diff.is_diff_certain);
 }
 
-TEST(ValueDiffPtrIndexHash, EqualConstants) {
-  IRBuilder builder;
-
-  auto *const1 = builder.get_int32(42);
-  auto *const2 = builder.get_int32(42);
-
-  const auto diff = value_diff_ptr_index(const1, const2);
-  ASSERT_TRUE(diff.is_diff_certain);
-  ASSERT_EQ(diff.diff_range, 0);
-  EXPECT_EQ(value_diff_ptr_index_hash(const1), value_diff_ptr_index_hash(const2));
-}
-
-TEST(ValueDiffPtrIndexHash, EqualBaseAndOffset) {
-  IRBuilder builder;
-
-  auto *alloca = builder.create_local_var(PrimitiveType::i32);
-  auto *load = builder.create_local_load(alloca);
-  auto *bin1 = builder.create_add(load, builder.get_int32(7));
-  auto *bin2 = builder.create_add(load, builder.get_int32(7));
-
-  const auto diff = value_diff_ptr_index(bin1, bin2);
-  ASSERT_TRUE(diff.is_diff_certain);
-  ASSERT_EQ(diff.diff_range, 0);
-  EXPECT_EQ(value_diff_ptr_index_hash(bin1), value_diff_ptr_index_hash(bin2));
-}
-
 TEST(DiffRangeTest, Add) {
   IRBuilder builder;
 

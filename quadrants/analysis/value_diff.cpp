@@ -5,8 +5,6 @@
 #include "quadrants/ir/statements.h"
 #include "quadrants/ir/visitors.h"
 
-#include <functional>
-
 namespace quadrants::lang {
 
 DiffRange operator+(const DiffRange &a, const DiffRange &b) {
@@ -181,21 +179,6 @@ DiffPtrResult value_diff_ptr_index(Stmt *val1, Stmt *val2) {
     return DiffPtrResult::make_uncertain();
   }
   return DiffPtrResult::make_certain(std::get<2>(v1) - std::get<2>(v2));
-}
-
-std::size_t value_diff_ptr_index_hash(Stmt *val) {
-  auto [decomposed, base, offset] = FindDirectValueBaseAndOffset::run(val);
-  std::size_t seed = decomposed ? 0x85ebca6b : 0xc2b2ae35;
-  auto hash_combine = [](std::size_t &target, std::size_t value) {
-    target ^= value + 0x9e3779b9 + (target << 6) + (target >> 2);
-  };
-  if (decomposed) {
-    hash_combine(seed, std::hash<Stmt *>{}(base));
-    hash_combine(seed, std::hash<int>{}(offset));
-  } else {
-    hash_combine(seed, std::hash<Stmt *>{}(val));
-  }
-  return seed;
 }
 
 }  // namespace analysis
