@@ -139,6 +139,25 @@ TEST(PtxCache, TestSmVersionPartitioning) {
   ASSERT_EQ(ptx_code_75, ptx_cache_75->load_ptx(key_75));
 }
 
+TEST(PtxCache, ExternalOptimizationLevelPartitioning) {
+  PtxCache::Config config;
+  config.offline_cache_path = std::filesystem::temp_directory_path().string();
+
+  CompileConfig compile_config_o1;
+  compile_config_o1.arch = Arch::cuda;
+  compile_config_o1.offline_cache = false;
+  compile_config_o1.external_optimization_level = 1;
+
+  CompileConfig compile_config_o3;
+  compile_config_o3.arch = Arch::cuda;
+  compile_config_o3.offline_cache = false;
+  compile_config_o3.external_optimization_level = 3;
+
+  PtxCache ptx_cache_o1(config, compile_config_o1, /*compute_capability=*/80);
+  PtxCache ptx_cache_o3(config, compile_config_o3, /*compute_capability=*/80);
+  EXPECT_NE(ptx_cache_o1.make_cache_key("same module", true), ptx_cache_o3.make_cache_key("same module", true));
+}
+
 TEST(PtxCache, OfflineCacheDisabledSkipsDisk) {
   auto temp_dir = std::filesystem::temp_directory_path() / "PtxCache.OfflineCacheDisabledSkipsDisk";
   std::filesystem::remove_all(temp_dir);

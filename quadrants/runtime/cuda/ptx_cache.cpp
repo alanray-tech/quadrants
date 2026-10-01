@@ -155,13 +155,17 @@ std::string PtxCache::make_filename(const std::string &kernel_key) const {
   return join_path(cache_dir_, fmt::format(kCacheFilenameFormat, kernel_key));
 }
 
-std::string PtxCache::make_cache_key(const std::string &llvm_ir, bool use_fast_math) const {
+std::string PtxCache::make_cache_key(const std::string &llvm_module_fingerprint, bool use_fast_math) const {
   picosha2::hash256_one_by_one hasher;
+  static constexpr char kCacheKeySchema[] = "ptx-cache-key-v2-bitcode";
   std::string fast_math_str = use_fast_math ? "1" : "0";
   std::string sm_version_str = std::to_string(compute_capability_);
+  std::string optimization_level_str = std::to_string(compile_config_.external_optimization_level);
+  hasher.process(kCacheKeySchema, kCacheKeySchema + sizeof(kCacheKeySchema) - 1);
   hasher.process(sm_version_str.begin(), sm_version_str.end());
   hasher.process(fast_math_str.begin(), fast_math_str.end());
-  hasher.process(llvm_ir.begin(), llvm_ir.end());
+  hasher.process(optimization_level_str.begin(), optimization_level_str.end());
+  hasher.process(llvm_module_fingerprint.begin(), llvm_module_fingerprint.end());
   hasher.finish();
 
   auto res = picosha2::get_hash_hex_string(hasher);

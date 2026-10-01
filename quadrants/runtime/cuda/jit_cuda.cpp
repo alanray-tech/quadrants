@@ -5,6 +5,7 @@
 #include "quadrants/runtime/llvm/llvm_context.h"
 #include "quadrants/codegen/ir_dump.h"
 #include "quadrants/util/environ_config.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Scalar/LoopStrengthReduce.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
@@ -251,11 +252,14 @@ std::string JITSessionCUDA::compile_module_to_ptx(std::unique_ptr<llvm::Module> 
     writer.write(module.get());
   }
 
-  std::string llvm_ir_str;
-  llvm::raw_string_ostream llvm_ir_stream(llvm_ir_str);
-  module->print(llvm_ir_stream, nullptr);
-  llvm_ir_stream.flush();
-  std::string ptx_cache_key = ptx_cache_->make_cache_key(llvm_ir_str, this->config_.fast_math);
+  // Bitcode is substantially faster and smaller to serialize than textual LLVM IR for large graph modules. The PTX
+  // cache needs a deterministic module fingerprint, not human-readable source, so avoid paying the text printer cost
+  // on every cold compile and cached process restart.
+  std::string llvm_bitcode;
+  llvm::raw_string_ostream llvm_bitcode_stream(llvm_bitcode);
+  llvm::WriteBitcodeToFile(*module, llvm_bitcode_stream);
+  llvm_bitcode_stream.flush();
+  std::string ptx_cache_key = ptx_cache_->make_cache_key(llvm_bitcode, this->config_.fast_math);
   std::optional<std::string> maybe_ptx = ptx_cache_->load_ptx(ptx_cache_key);
   if (maybe_ptx.has_value()) {
     QD_TRACE("Loaded PTX from cache for module {}", module->getName().str());
