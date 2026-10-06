@@ -13,6 +13,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
@@ -69,6 +70,18 @@
 #endif
 
 #define LIBDEVICE_VERSION 10
+
+namespace {
+
+void set_module_target_triple(llvm::Module *module, const char *triple) {
+#if LLVM_VERSION_MAJOR >= 18
+  module->setTargetTriple(llvm::Triple(triple));
+#else
+  module->setTargetTriple(triple);
+#endif
+}
+
+}  // namespace
 
 namespace quadrants::lang {
 
@@ -354,7 +367,7 @@ std::unique_ptr<llvm::Module> QuadrantsLLVMContext::module_from_file(const std::
     patch_atomic_rmw("atomic_max_f64", llvm::AtomicRMWInst::FMax);
 
     if (arch_ == Arch::cuda) {
-      module->setTargetTriple(llvm::Triple("nvptx64-nvidia-cuda"));
+      set_module_target_triple(module.get(), "nvptx64-nvidia-cuda");
 
       strip_nvvmir_version(module.get());
 
@@ -512,7 +525,7 @@ std::unique_ptr<llvm::Module> QuadrantsLLVMContext::module_from_file(const std::
 #endif
 
     if (arch_ == Arch::amdgpu) {
-      module->setTargetTriple(llvm::Triple("amdgcn-amd-amdhsa"));
+      set_module_target_triple(module.get(), "amdgcn-amd-amdhsa");
 #ifdef QD_WITH_AMDGPU
       llvm::legacy::FunctionPassManager function_pass_manager(module.get());
       function_pass_manager.add(new AMDGPUConvertAllocaInstAddressSpacePass());
@@ -773,7 +786,7 @@ void QuadrantsLLVMContext::link_module_with_cuda_libdevice(std::unique_ptr<llvm:
     }
   }
 
-  libdevice_module->setTargetTriple(llvm::Triple("nvptx64-nvidia-cuda"));
+  set_module_target_triple(libdevice_module.get(), "nvptx64-nvidia-cuda");
   strip_nvvmir_version(libdevice_module.get());
 
   // `slim_libdevice.10.bc` ships without an explicit `target datalayout` line (only the `nvptx64-nvidia-gpulibs`
