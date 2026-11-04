@@ -71,8 +71,8 @@ named here are the ones on `dev-fast`.
   do not share one offline cache directory between `dev-fast` and an upstream build.
 - Python: the source text of each `qd.func` / `qd.kernel` is read and dedented once instead of at every inline site,
   and dataclass AST flattening is skipped when a kernel has no dataclass parameters.
-- Tests: `tests/python/test_offload_cross.py`, `tests/python/test_runtime.py`, `tests/cpp/runtime/cuda/ptx_cache_test.cpp`.
-  There is no benchmark in the repository for the compile-time gains.
+- Tests: `tests/python/test_offload_cross.py`, `tests/python/test_runtime.py`,
+  `tests/cpp/runtime/cuda/ptx_cache_test.cpp`. There is no benchmark in the repository for the compile-time gains.
 
 ### NamedTuple members of data-oriented classes (`fix/issue-1040-namedtuple-in-data-oriented`, PR #1050)
 
@@ -137,8 +137,8 @@ git push fork dev-fast
 ```
 
 Once upstream merges a topic, its changes arrive with `origin/main`. Upstream usually squash-merges, which can conflict
-with the older version in `dev-fast`: resolve to the upstream side. Then remove the topic from the table above and delete
-its branch on the fork.
+with the older version in `dev-fast`: resolve to the upstream side. Then remove the topic from the tables above and
+delete its branch on the fork.
 
 ## Adding or changing a topic
 
