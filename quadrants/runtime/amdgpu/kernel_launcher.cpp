@@ -170,8 +170,14 @@ void KernelLauncher::launch_offloaded_tasks(LaunchContextBuilder &ctx,
       // as the body prologue (see `runtime/amdgpu/checkpoint_yield_check.hip`) so a checkpoint that the body skipped
       // also has its yield-check no-op. Replaces the host-side D2H of the user's `yield_on` flag the old host-branch
       // gating did.
+      // Skip the cp_id -1 bound helper tasks of dynamic range-fors, which sit between the tasks of one checkpoint body
+      // (see the matching comment in `runtime/cpu/kernel_launcher.cpp`).
+      std::size_t next = i + 1;
+      while (next < offloaded_tasks.size() && offloaded_tasks[next].checkpoint_id < 0) {
+        ++next;
+      }
       bool is_last_in_run =
-          (i + 1 == offloaded_tasks.size()) || offloaded_tasks[i + 1].checkpoint_id != task.checkpoint_id;
+          next == offloaded_tasks.size() || offloaded_tasks[next].checkpoint_id != task.checkpoint_id;
       int32_t cp_id = task.checkpoint_id;
       if (cp_id >= 0 && is_last_in_run && (std::size_t)cp_id < launcher_ctx.checkpoint_yield_on_slots.size() &&
           launcher_ctx.checkpoint_yield_on_slots[cp_id] != nullptr) {

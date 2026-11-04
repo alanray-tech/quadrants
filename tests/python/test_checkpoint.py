@@ -553,6 +553,41 @@ def test_checkpoint_yields_when_flag_is_set():
 
 
 @test_utils.test()
+def test_checkpoint_yields_after_its_whole_body_with_dynamic_ranges():
+    """A yielding checkpoint runs its whole body first. Each range-for over ``x.shape[0]`` has a bound helper task
+    outside any checkpoint, emitted between the tasks of the body: the yield must not fire after the first loop."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
+    N = 8
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(
+        x: qd.types.ndarray(qd.i32, ndim=1),
+        y: qd.types.ndarray(qd.i32, ndim=1),
+        flag: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        with qd.checkpoint(7, yield_on=flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 1
+            for i in range(y.shape[0]):
+                y[i] = y[i] + 2
+        for i in range(x.shape[0]):  # implicit checkpoint, skipped on yield
+            x[i] = x[i] + 10
+
+    x = qd.ndarray(qd.i32, shape=(N,))
+    y = qd.ndarray(qd.i32, shape=(N,))
+    flag = qd.ndarray(qd.i32, shape=())
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    y.from_numpy(np.zeros(N, dtype=np.int32))
+    flag.from_numpy(np.array(1, dtype=np.int32))
+    status = k(x, y, flag)
+    assert status.yielded
+    assert status.checkpoint == 7
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 1, dtype=np.int32))
+    np.testing.assert_array_equal(y.to_numpy(), np.full(N, 2, dtype=np.int32))
+
+
+@test_utils.test()
 def test_checkpoint_yield_first_wins_subsequent_skipped():
     """When two yielders both set their flag in the same launch, the *first* (in source / declaration order) wins:
     ``yield_signal`` is atomic-CAS'd from -1 only by the first writer, later writers see the slot already filled and
