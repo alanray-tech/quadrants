@@ -6,10 +6,11 @@ These tests cover the auto-checkpoint surface:
     label (``int`` or ``IntEnum`` value), and ``yield_on`` is a 0-d ``qd.i32`` ndarray kernel parameter.
   - The kernel must be decorated with ``@qd.kernel(graph=True, checkpoints=True)`` to use ``qd.checkpoint(...)``. The
     flag opts the kernel into the resume model and enables the auto-wrap pass.
-  - Auto-wrap: every top-level for-loop in the kernel body (including inside ``while qd.graph.do_while(...):``) that
-    is not inside a ``with qd.checkpoint(...)`` becomes an implicit no-yield checkpoint. Implicit checkpoints carry no
-    user label and never appear in ``GraphStatus.checkpoint``, but they DO consume an internal cp_id slot so a resume
-    launch can skip them along with the explicit checkpoints declared earlier in source order.
+  - Auto-wrap: every run of consecutive top-level for-loops in the kernel body (including inside
+    ``while qd.graph.do_while(...):``) that is not inside a ``with qd.checkpoint(...)`` becomes one implicit no-yield
+    checkpoint. Implicit checkpoints carry no user label and never appear in ``GraphStatus.checkpoint``, but they DO
+    consume an internal cp_id slot so a resume launch can skip them along with the explicit checkpoints declared earlier
+    in source order.
   - ``status.checkpoint`` round-trips the user-supplied label (so ``qd.checkpoint(Stage.SIM, ...)`` surfaces as
     ``Stage.SIM`` on yield). ``kernel.resume(from_checkpoint=Stage.SIM)`` skips every checkpoint (implicit + explicit)
     declared before ``Stage.SIM`` in source order.
@@ -287,9 +288,9 @@ def test_checkpoint_nested_raises():
 
 
 @test_utils.test()
-def test_autowrap_assigns_implicit_cp_id_per_for_loop():
-    """In a ``checkpoints=True`` kernel, every top-level for-loop not inside a ``with qd.checkpoint(...)`` consumes one
-    internal cp_id slot (with a ``None`` user label). Three plain for-loops -> three implicit slots."""
+def test_autowrap_groups_consecutive_for_loops():
+    """In a ``checkpoints=True`` kernel, a run of consecutive top-level for-loops not inside a ``with qd.checkpoint(...)``
+    consumes one internal cp_id slot (with a ``None`` user label). Three plain for-loops -> one implicit slot."""
     N = 4
 
     @qd.kernel(graph=True, checkpoints=True)
@@ -305,9 +306,65 @@ def test_autowrap_assigns_implicit_cp_id_per_for_loop():
     x.from_numpy(np.zeros(N, dtype=np.int32))
     k(x)
     np.testing.assert_array_equal(x.to_numpy(), np.full(N, 3, dtype=np.int32))
-    # All three are implicit (no user labels), no yield_on either.
-    assert k._primal.checkpoint_user_labels_by_cp_id == [None, None, None]
-    assert k._primal.checkpoint_yield_on_args == [None, None, None]
+    # One implicit checkpoint for the three loops (no user label), no yield_on either.
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None]
+    assert k._primal.checkpoint_yield_on_args == [None]
+
+
+@test_utils.test()
+def test_autowrap_run_ends_at_bare_statement():
+    """A bare top-level statement stays in the kernel prologue and ends the run of for-loops before it: the loops on
+    either side get separate implicit checkpoints."""
+    N = 4
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(
+        x: qd.types.ndarray(qd.i32, ndim=1),
+        n_local: qd.types.ndarray(qd.i32, ndim=0),
+        flag: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        n_local[()] = x.shape[0]
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        with qd.checkpoint(7, yield_on=flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 10
+
+    x = qd.ndarray(qd.i32, shape=(N,))
+    n_local = qd.ndarray(qd.i32, shape=())
+    flag = qd.ndarray(qd.i32, shape=())
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    n_local.from_numpy(np.array(0, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    k(x, n_local, flag)
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 13, dtype=np.int32))
+    assert int(n_local.to_numpy()) == N
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None, None, 7]
+
+
+@test_utils.test()
+def test_autowrap_run_keeps_loop_config():
+    """A ``qd.loop_config(...)`` call between consecutive for-loops joins their implicit checkpoint and still configures
+    the next loop: the serialized prefix loop must run in order."""
+    N = 64
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(x: qd.types.ndarray(qd.i32, ndim=1)):
+        for i in range(x.shape[0]):
+            x[i] = 1
+        qd.loop_config(serialize=True)
+        for i in range(1, x.shape[0]):
+            x[i] = x[i - 1] + 1
+
+    x = qd.ndarray(qd.i32, shape=(N,))
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    k(x)
+    np.testing.assert_array_equal(x.to_numpy(), np.arange(1, N + 1, dtype=np.int32))
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None]
 
 
 @test_utils.test()
@@ -654,6 +711,51 @@ def test_resume_by_int_label_skips_implicit_and_explicit_before():
     flag.from_numpy(np.array(0, dtype=np.int32))
     k.resume(x, flag, from_checkpoint=42)
     np.testing.assert_array_equal(x.to_numpy(), np.full(N, 110, dtype=np.int32))
+
+
+@test_utils.test()
+def test_grouped_implicit_loops_keep_resume_and_yield_semantics():
+    """The loops of one implicit checkpoint are skipped together: resume skips every loop before the target, and a
+    yield skips every loop after the yielding checkpoint, as with one implicit checkpoint per loop."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
+    N = 4
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(x: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 2
+        with qd.checkpoint(42, yield_on=flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 10
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 100
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1000
+
+    x = qd.ndarray(qd.i32, shape=(N,))
+    flag = qd.ndarray(qd.i32, shape=())
+
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    status = k(x, flag)
+    assert not status.yielded
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 1113, dtype=np.int32))
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None, 42, None]
+
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    status = k.resume(x, flag, from_checkpoint=42)
+    assert not status.yielded
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 1110, dtype=np.int32))
+
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    flag.from_numpy(np.array(1, dtype=np.int32))
+    status = k(x, flag)
+    assert status.yielded
+    assert status.checkpoint == 42
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 13, dtype=np.int32))
 
 
 @test_utils.test()
@@ -1285,6 +1387,38 @@ def test_checkpoint_emits_if_nodes_on_cuda_native():
         assert (
             _num_checkpoints_on_last_call() == 3
         ), f"expected 3 IF conditional nodes (2 implicit + 1 explicit), got {_num_checkpoints_on_last_call()}"
+
+
+@test_utils.test()
+def test_grouped_implicit_loops_share_one_if_node_on_cuda_native():
+    """Consecutive for-loops outside explicit checkpoints share one implicit checkpoint, hence one gate kernel and one
+    IF conditional node: three loops, one explicit checkpoint, then two loops build three IF nodes, not six."""
+    N = 8
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(x: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        with qd.checkpoint(0, yield_on=flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+        for i in range(x.shape[0]):
+            x[i] = x[i] + 1
+
+    x = qd.ndarray(qd.i32, shape=(N,))
+    flag = qd.ndarray(qd.i32, shape=())
+    x.from_numpy(np.zeros(N, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    k(x, flag)
+    if _is_checkpoint_if_path_native():
+        assert _num_checkpoints_on_last_call() == 3, f"expected 3 IF nodes, got {_num_checkpoints_on_last_call()}"
+    np.testing.assert_array_equal(x.to_numpy(), np.full(N, 6, dtype=np.int32))
 
 
 # Subprocess dispatch for fast-cache restoration tests above (mirrors the pattern in `test_graph_do_while.py`). The
