@@ -29,6 +29,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/windows-test-portability` | Three tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and two capfd tests are skipped on Windows | Not submitted |
 | `fix/graph-parallel-serial-section-tasks` | The right-hand side of a bare store in a `qd.graph.parallel()` section is computed in that section's task, not in the previous section's, which raced on the CUDA graph path | Not submitted |
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
+| `perf/cuda-range-rematerialize` | On top of `perf/compile-speed`: on CUDA, scalar range bounds computed in an earlier task, and the loop body's uses of such scalars, are recomputed in the worker instead of passed through a serial task; a bound that reads device memory the loop may write keeps the serial task | Not submitted (follows PR #1024) |
 
 ## Feature notes
 
@@ -142,6 +143,25 @@ named here are the ones on `dev-fast`.
 - Same idea as the continuation regions of the `cuda-graph-qipc` pipeline builder, where one gate and one IF cover a
   maximal run of ordinary work.
 - Tests: the `test_autowrap_*` and `test_grouped_implicit_loops_*` tests in `tests/python/test_checkpoint.py`.
+
+### Scalar range bounds recomputed in the worker (`perf/cuda-range-rematerialize`)
+
+- CUDA only, and only in kernels without an adstack. Integer arithmetic over scalar arguments, constants and ndarray
+  shapes is recomputed by the task that uses it instead of being written to a global temporary by a serial task. This
+  covers range bounds computed in an earlier task (in Genesis' contact0, a reset loop runs between the bounds and the
+  loop that uses them) and the loop body's own uses of those scalars. Single-store locals are forwarded right before
+  offloading, so `n = x.shape[0]` is seen through when CFG optimization is disabled, as in Genesis.
+- A bound inlined by `perf/compile-speed` that loads device memory now keeps the serial task when the loop body may
+  write that memory (store, atomic, function call). Every worker reads an inlined bound when it enters the grid-stride
+  loop, so a loop that decrements or clears its own count ran a different number of iterations.
+- Genesis contact0 (hughperkins' benchmark from issue #929, RTX 5090, exclusive GPU, 100 graph calls): 3 tasks become
+  2, and the GPU span per call drops from 25.73 to 24.57 us at 64 environments, 32.86 to 32.22 us at 1024 and
+  77.21 to 76.43 us at 8192, with bit-identical contact queues. The gain is the removed 0.9 us serial task and its
+  dependency.
+- Same approach as PR #1024 for the scalar part. Unlike #1024, bounds that load device scalars are also inlined
+  (from `perf/compile-speed`).
+- Not checked: whether the write check sends any range bound of the Newton v1 PCG back to a serial task.
+- Tests: the `test_cuda_*` tests in `tests/python/test_offload_cross.py`.
 
 ### Serial stores in graph parallel sections (`fix/graph-parallel-serial-section-tasks`)
 
