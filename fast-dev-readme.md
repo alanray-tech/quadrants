@@ -27,6 +27,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/fastcache-concurrent-access` | A fastcache entry that fails to read or write because another process holds it counts as a cache miss instead of failing the kernel call | Issue #943 |
 | `fix/checkpoint-yield-after-helper-tasks` | On CPU and AMDGPU, a checkpoint with several dynamic range loops no longer yields after its first loop | Not submitted |
 | `fix/windows-test-portability` | Two tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and a capfd test is skipped on Windows | Not submitted |
+| `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
 
 ## Feature notes
 
@@ -114,6 +115,23 @@ named here are the ones on `dev-fast`.
 - Not checked on AMD hardware. The AMDGPU graph path (`runtime/amdgpu/graph_manager.cpp`), which splits tasks by
   checkpoint id the same way, is unchanged and may have the same problem.
 
+### Implicit checkpoint grouping (`perf/checkpoint-implicit-grouping`)
+
+- In a `checkpoints=True` kernel, every top-level for-loop outside an explicit `qd.checkpoint` used to become its own
+  implicit checkpoint, which costs one gate kernel and one IF conditional node on the CUDA graph path (SM 9.0+). Now
+  each run of consecutive top-level for-loops, with the `qd.loop_config(...)` calls between them, is one implicit
+  checkpoint. Bare statements, explicit checkpoints and `qd.graph.do_while` loops end a run.
+- Resume and yield behave as before: an implicit checkpoint never yields and cannot be a resume target, so the loops
+  of one run were always skipped or run together.
+- Kernels that relied on the number of implicit slots see fewer entries in `checkpoint_user_labels_by_cp_id`, and
+  fewer checkpoints in `get_graph_num_checkpoints_on_last_call()`.
+- A graph kernel of 256 small loops with one explicit checkpoint on an RTX 5090: 772 graph nodes and 4.1 ms per
+  launch before, 262 nodes and 0.68 ms after (0.48 ms without checkpoints). A kernel with checkpoints still costs about
+  0.13 ms more per launch than one without, independently of its size; that is not investigated yet.
+- Same idea as the continuation regions of the `cuda-graph-qipc` pipeline builder, where one gate and one IF cover a
+  maximal run of ordinary work.
+- Tests: the `test_autowrap_*` and `test_grouped_implicit_loops_*` tests in `tests/python/test_checkpoint.py`.
+
 ### Windows test portability (`fix/windows-test-portability`)
 
 - `test_read_file_with_arrows` writes its UTF-8 fixture with an explicit encoding, and
@@ -125,6 +143,11 @@ named here are the ones on `dev-fast`.
 Windows 11, RTX 5090, CUDA, LLVM 22.1.0. On the merged `dev-fast`, the tests of the files that the topics change, on CPU
 and CUDA: 519 passed, and the 3 failures (2 tests) that `fix/windows-test-portability` then fixed. The full quadrants
 test suite has not been run on `dev-fast`.
+
+Known upstream problem: `test_graph_parallel_back_to_back_regions_serial_sections_keep_join` fails intermittently on
+CUDA, 25 of 30 runs on upstream `main` (`b2f658e58`) and 20 of 30 on `dev-fast`. The second `qd.graph.parallel_context()`
+sometimes reads a value that a bare serial store of the first context has not written yet, although the graph has the
+expected join nodes. The two other back-to-back region tests, with for-loop sections, never fail. Not investigated yet.
 
 ## Syncing with upstream
 
