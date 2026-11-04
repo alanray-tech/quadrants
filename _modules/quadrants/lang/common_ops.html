@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 
@@ -26,8 +25,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
-<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+  <link href="../../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
@@ -37,14 +36,14 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
-<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
 
     <script src="../../../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -53,12 +52,12 @@
     <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/quadrants/lang/common_ops';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1.0" />
   
@@ -108,7 +107,7 @@
   
     <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
     <span class="fa-solid fa-bars"></span>
   </button>
   
@@ -166,7 +165,7 @@
         <div class="navbar-item navbar-persistent--container">
           
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -176,11 +175,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
     </div>
     
@@ -189,7 +195,7 @@
   
     <div class="navbar-persistent--mobile">
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -210,7 +216,7 @@
       
         
       
-      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
         
 
@@ -251,11 +257,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
       </div>
     
@@ -293,7 +306,7 @@
     
     <li class="breadcrumb-item breadcrumb-home">
       <a href="../../../index.html" class="nav-link" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
+        <i class="fa-solid fa-house"></i>
       </a>
     </li>
     
@@ -329,7 +342,7 @@
 <div class="viewcode-block" id="QuadrantsOperations">
 <a class="viewcode-back" href="../../../autoapi/quadrants/lang/common_ops/index.html#quadrants.lang.common_ops.QuadrantsOperations">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">QuadrantsOperations</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The base class of quadrants operations of expressions. Subclasses: :class:`~quadrants.lang.expr.Expr`, :class:`~quadrants.lang.matrix.Matrix`&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""The base class of quadrants operations of expressions. Subclasses: :class:`~quadrants.lang.expr.Expr`, :class:`~quadrants.lang.matrix.Matrix`"""</span>
 
     <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
         <span class="c1"># Make pylint happy</span>
@@ -439,63 +452,63 @@
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic add between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic add between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic add.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic add."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic mul between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic mul between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic mul.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic mul."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic sub between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic sub between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic sub.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic sub."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_and</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic and between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic and between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic and.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic and."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_and</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_xor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic xor between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic xor between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic xor.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic xor."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_xor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_or</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the new expression of computing atomic or between self and a given operand.</span>
+<span class="w">        </span><span class="sd">"""Return the new expression of computing atomic or between self and a given operand.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic or.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The computing expression of atomic or."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">atomic_or</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="c1"># In-place operators in python scope returns NotImplemented to fall back to normal operators</span>
@@ -535,7 +548,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_or</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 
-    <span class="c1"># we don&#39;t support atomic_mul/truediv/floordiv/mod yet:</span>
+    <span class="c1"># we don't support atomic_mul/truediv/floordiv/mod yet:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__imul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">in_python_scope</span><span class="p">():</span>
             <span class="k">return</span> <span class="bp">NotImplemented</span>
@@ -579,44 +592,44 @@
         <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign the expression of the given operand to self.</span>
+<span class="w">        </span><span class="sd">"""Assign the expression of the given operand to self.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            other (Any): Given operand.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The expression after assigning.&quot;&quot;&quot;</span>
+<span class="sd">            :class:`~quadrants.lang.expr.Expr`: The expression after assigning."""</span>
         <span class="k">return</span> <span class="n">ops</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_augassign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the computing expression between self and the given operand of given operator and assigned to self.</span>
+<span class="w">        </span><span class="sd">"""Generate the computing expression between self and the given operand of given operator and assigned to self.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            x (Any): Given operand.</span>
-<span class="sd">            op (str): The name of operator.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Add&quot;</span><span class="p">:</span>
+<span class="sd">            op (str): The name of operator."""</span>
+        <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Add"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">+=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Sub&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Sub"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">-=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Mult&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Mult"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">*=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Div&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Div"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">/=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;FloorDiv&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"FloorDiv"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">//=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Mod&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Mod"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">%=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;BitAnd&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"BitAnd"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">&amp;=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;BitOr&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"BitOr"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">|=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;BitXor&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"BitXor"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">^=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;RShift&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"RShift"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">&gt;&gt;=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;LShift&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"LShift"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">&lt;&lt;=</span> <span class="n">x</span>
-        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;Pow&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"Pow"</span><span class="p">:</span>
             <span class="bp">self</span> <span class="o">**=</span> <span class="n">x</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="n">op</span>
@@ -659,8 +672,8 @@
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
-<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -680,8 +693,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
-    <br/>
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.1.
   </p>
 </div>
       
@@ -694,7 +706,7 @@
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.17.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
 </p></div>
       
     </div>

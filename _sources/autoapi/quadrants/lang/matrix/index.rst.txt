@@ -243,6 +243,28 @@ Module Contents
 
 
 
+   .. py:method:: frobenius_inner(other)
+
+      Returns the Frobenius inner product :math:`\langle A, B \rangle = \sum_{ij} A_{ij} B_{ij}`.
+
+      Both operands must have the same shape. Defined for any tensor shape (vector or matrix); for matrices this
+      is the standard Frobenius inner product, and :meth:`norm_sqr` is the special case ``A.frobenius_inner(A)``.
+
+      :param other: The other operand. Must have the same shape as ``self``.
+      :type other: :class:`~quadrants.Matrix`
+
+      :returns: The scalar Frobenius inner product.
+      :rtype: DataType
+
+      Example::
+
+          >>> A = qd.Matrix([[1.0, 2.0], [3.0, 4.0]])
+          >>> B = qd.Matrix([[5.0, 6.0], [7.0, 8.0]])
+          >>> A.frobenius_inner(B)
+          70.0
+
+
+
    .. py:method:: max()
 
       Returns the maximum element value.
@@ -394,7 +416,7 @@ Module Contents
 
 
 
-   .. py:method:: field(n, m, dtype, shape=None, order=None, name='', offset=None, needs_grad=False, needs_dual=False, layout=Layout.AOS, ndim=None)
+   .. py:method:: field(n, m, dtype, shape=None, order=None, name='', offset=None, needs_grad=False, needs_dual=False, layout=Layout.AOS, ndim=None, *, fill: quadrants.lang._fill_initializer._FillValue | None = None)
       :classmethod:
 
 
@@ -420,13 +442,15 @@ Module Contents
       :type needs_dual: bool, optional
       :param layout: The field layout, either Array Of Structure (AOS) or Structure Of Array (SOA).
       :type layout: Layout, optional
+      :param fill: Initial scalar or per-component values, applied once on materialization. Defaults to None.
+      :type fill: optional
 
       :returns: A matrix.
       :rtype: :class:`~quadrants.Matrix`
 
 
 
-   .. py:method:: ndarray(n, m, dtype, shape, needs_grad=False)
+   .. py:method:: ndarray(n, m, dtype, shape, needs_grad=False, *, fill: quadrants.lang._fill_initializer._FillValue | None = None)
       :classmethod:
 
 
@@ -443,8 +467,9 @@ Module Contents
       :type shape: Union[int, tuple[int]]
       :param needs_grad: If True, allocate a companion grad ndarray of the same shape and dtype,
                          accessible via ``arr.grad``. Requires ``dtype`` to be a real (floating-point) type. Defaults to False.
-                         Silently ignored on the python backend (matches the scalar ``qd.ndarray`` behaviour).
       :type needs_grad: bool, optional
+      :param fill: Initial scalar or per-component values, submitted during allocation. Defaults to None.
+      :type fill: optional
 
       Example::
 
@@ -460,8 +485,7 @@ Module Contents
 
       Allocate a tensor whose elements are ``n``-by-``m`` matrices.
 
-      Per-tensor backend dispatcher, equivalent to scalar ``qd.tensor()`` for matrix-valued elements. Selects
-      between ``qd.Matrix.field`` and ``qd.Matrix.ndarray`` based on the ``backend=`` keyword.
+      Equivalent to ``qd.tensor(qd.types.matrix(n, m, dtype), shape, **kwargs)``.
 
       :param n: Number of rows of each matrix element.
       :type n: int
@@ -471,7 +495,12 @@ Module Contents
       :param shape: Shape of the tensor (excluding the matrix dimensions) as an ``int`` or tuple of ``int``.
       :param backend: Storage backend. Defaults to ``qd.Backend.NDARRAY``.
       :type backend: qd.Backend, optional
-      :param \*\*kwargs: Forwarded verbatim to the underlying ``qd.Matrix.field`` / ``qd.Matrix.ndarray`` call.
+      :param layout: Permutation of shape axes, outermost first. Matrix component axes stay
+                     innermost. Defaults to the natural axis order.
+      :type layout: tuple of int, optional
+      :param fill: Initial scalar or per-component values, as in ``qd.tensor(..., fill=...)``.
+      :type fill: optional
+      :param \*\*kwargs: Additional options such as ``needs_grad``, forwarded to ``qd.tensor``.
 
       Example::
 
@@ -644,7 +673,7 @@ Module Contents
 
 
 
-   .. py:method:: ndarray(n, dtype, shape, needs_grad=False)
+   .. py:method:: ndarray(n, dtype, shape, needs_grad=False, *, fill: quadrants.lang._fill_initializer._FillValue | None = None)
       :classmethod:
 
 
@@ -658,8 +687,9 @@ Module Contents
       :type shape: Union[int, tuple[int]]
       :param needs_grad: If True, allocate a companion grad ndarray of the same shape and dtype,
                          accessible via ``arr.grad``. Requires ``dtype`` to be a real (floating-point) type. Defaults to False.
-                         Silently ignored on the python backend (matches the scalar ``qd.ndarray`` behaviour).
       :type needs_grad: bool, optional
+      :param fill: Initial scalar or per-component values, submitted during allocation. Defaults to None.
+      :type fill: optional
 
       .. rubric:: Example
 
@@ -675,8 +705,7 @@ Module Contents
 
       Allocate a tensor whose elements are length-``n`` vectors.
 
-      Per-tensor backend dispatcher, equivalent to scalar ``qd.tensor()`` for vector-valued elements. Selects
-      between ``qd.Vector.field`` and ``qd.Vector.ndarray`` based on the ``backend=`` keyword.
+      Equivalent to ``qd.tensor(qd.types.vector(n, dtype), shape, **kwargs)``.
 
       :param n: Length of each vector element.
       :type n: int
@@ -684,7 +713,12 @@ Module Contents
       :param shape: Shape of the tensor (excluding the vector dimension) as an ``int`` or tuple of ``int``.
       :param backend: Storage backend. Defaults to ``qd.Backend.NDARRAY``.
       :type backend: qd.Backend, optional
-      :param \*\*kwargs: Forwarded verbatim to the underlying ``qd.Vector.field`` / ``qd.Vector.ndarray`` call.
+      :param layout: Permutation of shape axes, outermost first. Vector components stay
+                     innermost. Defaults to the natural axis order.
+      :type layout: tuple of int, optional
+      :param fill: Initial scalar or per-component values, as in ``qd.tensor(..., fill=...)``.
+      :type fill: optional
+      :param \*\*kwargs: Additional options such as ``needs_grad``, forwarded to ``qd.tensor``.
 
       Example::
 
@@ -768,7 +802,8 @@ Module Contents
       :type keep_dims: bool, optional
       :param dtype: The desired data type of returned numpy array.
       :type dtype: DataType, optional
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
       :returns: The result NumPy array.
       :rtype: numpy.ndarray
@@ -784,7 +819,8 @@ Module Contents
       :param keep_dims: Whether to keep the dimension after conversion.
                         See :meth:`~quadrants.lang.field.MatrixField.to_numpy` for more detailed explanation.
       :type keep_dims: bool, optional
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
       :returns: The result torch tensor.
       :rtype: torch.tensor
@@ -854,7 +890,8 @@ Module Contents
 
       Converts this ndarray to a ``numpy.ndarray``.
 
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
       Example::
 
@@ -886,7 +923,8 @@ Module Contents
 
       Mirrors :meth:`MatrixField.to_torch`.
 
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
 
 
@@ -943,7 +981,8 @@ Module Contents
 
       Converts this vector ndarray to a ``numpy.ndarray``.
 
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
       Example::
 
@@ -978,7 +1017,8 @@ Module Contents
 
       Mirrors :meth:`MatrixField.to_torch` on the vector code path.
 
-      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises.
+      :param copy: ``True`` (default) returns an independent copy, ``False`` requires zero-copy or raises,
+                   ``None`` uses zero-copy when available and falls back to a copy otherwise.
 
 
 

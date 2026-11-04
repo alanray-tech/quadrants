@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 
@@ -27,8 +26,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -38,14 +37,14 @@
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
 
     <script src="../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -54,14 +53,14 @@
     <script src="../_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/autodiff';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Subgroup primitives" href="subgroup.html" />
-    <link rel="prev" title="Numpy and Torch interop" href="interop.html" />
+    <link rel="next" title="GPU execution model" href="gpu_execution_model.html" />
+    <link rel="prev" title="Shared Metal command queue (PyTorch MPS)" href="metal_shared_queue.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1.0" />
   
@@ -111,7 +110,7 @@
   
     <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
     <span class="fa-solid fa-bars"></span>
   </button>
   
@@ -169,7 +168,7 @@
         <div class="navbar-item navbar-persistent--container">
           
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -179,11 +178,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
     </div>
     
@@ -192,7 +198,7 @@
   
     <div class="navbar-persistent--mobile">
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -201,7 +207,7 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
       <span class="fa-solid fa-outdent"></span>
     </button>
   
@@ -215,7 +221,7 @@
       
       
       
-      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
@@ -256,18 +262,26 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
       </div>
     
   </div>
   
     <div class="sidebar-primary-items__start sidebar-primary__section">
-        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar"><svg class="pst-icon svg-inline--fa" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button type="button" id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
   </svg>
   <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
@@ -288,6 +302,9 @@
 <li class="toctree-l1"><a class="reference internal" href="tensor_types.html">Tensor types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scalar_tensors.html">Scalar tensors</a></li>
 <li class="toctree-l1"><a class="reference internal" href="matrix_vector.html">Matrix and Vector</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="matrix_vector_per_thread.html">Per-thread matrix and vector operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="linalg_per_thread.html">Per-thread linear algebra</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tensor.html">Tensors</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compound_types.html">Compound types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="buffer_view.html">BufferView</a></li>
@@ -298,42 +315,58 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Integration</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="interop.html">Numpy and Torch interop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metal_shared_queue.html">Shared Metal command queue (PyTorch MPS)</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Autodiff</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Automatic differentiation</a></li>
+<li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Automatic differentiation</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">SIMT primitives</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="gpu_execution_model.html">GPU execution model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="atomics.html">Atomics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="block.html">Block primitives</a></li>
+<li class="toctree-l1"><a class="reference internal" href="grid.html">Grid primitives</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
 <li class="toctree-l1"><a class="reference internal" href="subgroup.html">Subgroup primitives</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tile16.html">Tile16x16: register-resident 16x16 tiles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tile.html">Register-resident tiles: <code class="docutils literal notranslate"><span class="pre">Tile16x16</span></code> and <code class="docutils literal notranslate"><span class="pre">Tile32x32</span></code></a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Performance</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fastcache.html">Fastcache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="graph.html">CUDA Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="graph.html">Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="streams.html">Streams</a></li>
 <li class="toctree-l1"><a class="reference internal" href="perf_dispatch.html">Performance Dispatch</a></li>
 <li class="toctree-l1"><a class="reference internal" href="init_options.html">qd.init options</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Testing</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="unit_testing.html">Advanced: Unit testing</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernel_coverage.html">Kernel code coverage</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="unsupported_python.html">Python features in kernel scope</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_backend.html">Python backend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="debug.html">Debug mode</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quirks.html">Quirks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="optimization_passes.html">Optimization passes</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contributing</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to quadrants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Advanced: Contributing to quadrants</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Internal</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="building_cudagraph_conditional_fatbin.html">Building the CUDA graph conditional fatbin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building_cudagraph_conditional_fatbin.html">Advanced: Building the CUDA graph conditional fatbin</a></li>
 </ul>
 </div>
 </nav></div>
@@ -371,7 +404,7 @@
     
     <li class="breadcrumb-item breadcrumb-home">
       <a href="../index.html" class="nav-link" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
+        <i class="fa-solid fa-house"></i>
       </a>
     </li>
     
@@ -415,7 +448,7 @@
 <ol class="arabic simple">
 <li><p>Allocate an adjoint (<code class="docutils literal notranslate"><span class="pre">.grad</span></code>) buffer next to every primal field whose gradient you need.</p></li>
 <li><p>Run the forward kernel.</p></li>
-<li><p>Seed the loss gradient - typically <code class="docutils literal notranslate"><span class="pre">loss.grad[None]</span> <span class="pre">=</span> <span class="pre">1.0</span></code>.</p></li>
+<li><p>Seed the loss gradient - typically <code class="docutils literal notranslate"><span class="pre">loss.grad[()]</span> <span class="pre">=</span> <span class="pre">1.0</span></code>.</p></li>
 <li><p>Call <code class="docutils literal notranslate"><span class="pre">kernel.grad()</span></code>.</p></li>
 <li><p>Read the gradients from the <code class="docutils literal notranslate"><span class="pre">.grad</span></code> fields.</p></li>
 </ol>
@@ -433,16 +466,16 @@
 <span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute</span><span class="p">():</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
-        <span class="n">y</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">+=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">y</span><span class="p">[()]</span> <span class="o">+=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 
 <span class="c1"># Step 2: run the forward kernel.</span>
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">):</span>
     <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-<span class="n">y</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">y</span><span class="p">[()]</span> <span class="o">=</span> <span class="mf">0.0</span>
 <span class="n">compute</span><span class="p">()</span>
 
 <span class="c1"># Step 3: seed the loss gradient.</span>
-<span class="n">y</span><span class="o">.</span><span class="n">grad</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">y</span><span class="o">.</span><span class="n">grad</span><span class="p">[()]</span> <span class="o">=</span> <span class="mf">1.0</span>
 <span class="c1"># (clear input adjoints before the reverse pass so they do not accumulate)</span>
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">):</span>
     <span class="n">x</span><span class="o">.</span><span class="n">grad</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -469,7 +502,7 @@
 <section id="recording-a-backward-pass-with-qd-ad-tape">
 <h3>Recording a backward pass with <code class="docutils literal notranslate"><span class="pre">qd.ad.Tape</span></code><a class="headerlink" href="#recording-a-backward-pass-with-qd-ad-tape" title="Link to this heading">#</a></h3>
 <p>Training loops typically chain several kernels - physics step, feature extraction, loss. Differentiating such a pipeline by hand means calling each <code class="docutils literal notranslate"><span class="pre">.grad()</span></code> in the correct reverse order, seeding the loss, and clearing adjoints on every iteration.</p>
-<p><code class="docutils literal notranslate"><span class="pre">qd.ad.Tape</span></code> automates this. Kernel calls inside a <code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">qd.ad.Tape(loss=...)</span></code> block are recorded; on exit the tape replays them in reverse, seeds <code class="docutils literal notranslate"><span class="pre">loss.grad[None]</span> <span class="pre">=</span> <span class="pre">1.0</span></code>, and writes the input gradients back into the <code class="docutils literal notranslate"><span class="pre">.grad</span></code> fields. Adjoints are cleared on entry, which is the desired behavior for almost every training iteration.</p>
+<p><code class="docutils literal notranslate"><span class="pre">qd.ad.Tape</span></code> automates this. Kernel calls inside a <code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">qd.ad.Tape(loss=...)</span></code> block are recorded; on exit the tape replays them in reverse, seeds <code class="docutils literal notranslate"><span class="pre">loss.grad[()]</span> <span class="pre">=</span> <span class="pre">1.0</span></code>, and writes the input gradients back into the <code class="docutils literal notranslate"><span class="pre">.grad</span></code> fields. Adjoints are cleared on entry, which is the desired behavior for almost every training iteration.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">qd</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Tape</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="n">y</span><span class="p">):</span>
     <span class="n">compute</span><span class="p">()</span>
 <span class="c1"># x.grad is now populated.</span>
@@ -540,7 +573,7 @@
 <span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">accumulate</span><span class="p">(</span><span class="n">mul</span><span class="p">:</span> <span class="n">qd</span><span class="o">.</span><span class="n">f32</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">128</span><span class="p">):</span>
-        <span class="n">qd</span><span class="o">.</span><span class="n">atomic_add</span><span class="p">(</span><span class="n">total</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">mul</span><span class="p">)</span>
+        <span class="n">qd</span><span class="o">.</span><span class="n">atomic_add</span><span class="p">(</span><span class="n">total</span><span class="p">[()],</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">mul</span><span class="p">)</span>
 
 <span class="nd">@qd</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">grad_replaced</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">mul</span><span class="p">):</span>
@@ -566,22 +599,22 @@
 <p>Here is a kernel that violates the rule:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">bad</span><span class="p">():</span>
-    <span class="c1"># Reads b[None] for loss, then overwrites b[None] -&gt; invalid.</span>
-    <span class="n">loss</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
-    <span class="n">b</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">100</span>
+    <span class="c1"># Reads b[()] for loss, then overwrites b[()] -&gt; invalid.</span>
+    <span class="n">loss</span><span class="p">[()]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span><span class="p">[()]</span>
+    <span class="n">b</span><span class="p">[()]</span> <span class="o">+=</span> <span class="mi">100</span>
 </pre></div>
 </div>
-<p>This is the “read then overwrite” pattern: <code class="docutils literal notranslate"><span class="pre">b[None]</span></code> is read, then written, inside the same launch. The reverse pass would need the original <code class="docutils literal notranslate"><span class="pre">b[None]</span></code> to compute <code class="docutils literal notranslate"><span class="pre">dloss/dx[1]</span></code>, but by then it has been clobbered.</p>
+<p>This is the “read then overwrite” pattern: <code class="docutils literal notranslate"><span class="pre">b[()]</span></code> is read, then written, inside the same launch. The reverse pass would need the original <code class="docutils literal notranslate"><span class="pre">b[()]</span></code> to compute <code class="docutils literal notranslate"><span class="pre">dloss/dx[1]</span></code>, but by then it has been clobbered.</p>
 <p>To fix it, separate the read and the write into two distinct kernels. Each kernel launch becomes self-consistent: <code class="docutils literal notranslate"><span class="pre">compute_loss</span></code> only reads, <code class="docutils literal notranslate"><span class="pre">update_b</span></code> only writes, and the rule is obeyed because the constraint is per-launch.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_loss</span><span class="p">():</span>
-    <span class="n">loss</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+    <span class="n">loss</span><span class="p">[()]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span><span class="p">[()]</span>
 
 <span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">update_b</span><span class="p">():</span>
-    <span class="n">b</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">100</span>
+    <span class="n">b</span><span class="p">[()]</span> <span class="o">+=</span> <span class="mi">100</span>
 
-<span class="c1"># Call them in order. Each launch reads or writes b[None], never both.</span>
+<span class="c1"># Call them in order. Each launch reads or writes b[()], never both.</span>
 <span class="n">compute_loss</span><span class="p">()</span>
 <span class="n">update_b</span><span class="p">()</span>
 </pre></div>
@@ -668,6 +701,7 @@
 </table>
 </div>
 <p>Either way, the per-thread stride and each adstack’s offset / max-size land in a small buffer the main kernel reads on every push. The backing heap grows on demand to match the largest size any launch has needed so far, and is reused across subsequent launches - you do not need to reserve memory up front.</p>
+<p>The sized result is cached per task and reused while the loop bounds are unchanged. Although changing loop bounds at runtime is possible, it comes with some limitations for performance reasons. See <a class="reference internal" href="#what-can-go-wrong">What can go wrong</a> for details.</p>
 <p>The on-device sizer relies on two common hardware features (64-bit integer arithmetic and raw-pointer storage-buffer access). Every mainstream GPU from late 2018 onward supports both.</p>
 </section>
 <section id="manual-override">
@@ -675,7 +709,7 @@
 <p><code class="docutils literal notranslate"><span class="pre">qd.init()</span></code> exposes two escape hatches:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ad_stack_size=N</span></code> (default <code class="docutils literal notranslate"><span class="pre">0</span></code>): forces every adstack to exactly <code class="docutils literal notranslate"><span class="pre">N</span></code> slots and bypasses the sizer. Leave at <code class="docutils literal notranslate"><span class="pre">0</span></code> in day-to-day use; positive <code class="docutils literal notranslate"><span class="pre">N</span></code> is for stress tests or working around a suspected sizer bug.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ad_stack_sparse_threshold_bytes=B</span></code> (default <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">MiB</span></code>): cutoff below which the gate-passing-count sizing of <a class="reference internal" href="#memory-footprint">Memory footprint</a> is skipped in favour of the eager <code class="docutils literal notranslate"><span class="pre">dispatched_threads</span> <span class="pre">*</span> <span class="pre">stride</span></code> heap. The sparse path saves memory but pays a per-launch reducer dispatch; below <code class="docutils literal notranslate"><span class="pre">B</span></code> of conservative heap, that overhead outweighs the savings. Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> to always use the sparse path; lower it if the default still skips kernels you want shrunk.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ad_stack_sparse_threshold_bytes=B</span></code> (default <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">MiB</span></code>): cutoff below which the gate-passing-count sizing of <a class="reference internal" href="#memory-footprint">Memory footprint</a> is skipped in favor of the eager <code class="docutils literal notranslate"><span class="pre">dispatched_threads</span> <span class="pre">*</span> <span class="pre">stride</span></code> heap. The sparse path saves memory but pays a per-launch reducer dispatch; below <code class="docutils literal notranslate"><span class="pre">B</span></code> of conservative heap, that overhead outweighs the savings. Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> to always use the sparse path; lower it if the default still skips kernels you want shrunk.</p></li>
 </ul>
 </section>
 <section id="memory-footprint">
@@ -761,18 +795,28 @@
 </section>
 <section id="what-can-go-wrong">
 <h2>What can go wrong<a class="headerlink" href="#what-can-go-wrong" title="Link to this heading">#</a></h2>
+<section id="adstack-overflow">
+<h3>Adstack overflow<a class="headerlink" href="#adstack-overflow" title="Link to this heading">#</a></h3>
+<p>Surfaces as <code class="docutils literal notranslate"><span class="pre">QuadrantsAssertionError:</span> <span class="pre">Adstack</span> <span class="pre">overflow</span> <span class="pre">...</span></code> at the next Quadrants Python entry. The message names the offending kernel + offload task and the most likely cause.</p>
+<p>The two cases the runtime distinguishes:</p>
 <ul class="simple">
-<li><p><strong>Adstack overflow at <code class="docutils literal notranslate"><span class="pre">qd.sync()</span></code> (sizer under-estimated the bound).</strong> Surfaces asynchronously at the next <code class="docutils literal notranslate"><span class="pre">qd.sync()</span></code> as <code class="docutils literal notranslate"><span class="pre">QuadrantsAssertionError:</span> <span class="pre">Adstack</span> <span class="pre">overflow</span> <span class="pre">...</span></code>. On unusually intricate nested loops - typically deeply nested <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(arr[...])</span></code> with cumulative-index arithmetic - the sizer can compute a bound that is mathematically tighter than the actual push count. This is a bug; please file it with <code class="docutils literal notranslate"><span class="pre">QD_DUMP_IR=1</span></code> set so the kernel IR ships with the report. Workarounds, in order of convenience:</p>
-<ul>
-<li><p>shorten the innermost dynamic loop;</p></li>
-<li><p>precompute its worst-case trip into a scalar field the kernel only reads;</p></li>
-<li><p>split the inner section into its own <code class="docutils literal notranslate"><span class="pre">&#64;qd.kernel</span></code>;</p></li>
-<li><p>pass <code class="docutils literal notranslate"><span class="pre">ad_stack_size=N</span></code> to <code class="docutils literal notranslate"><span class="pre">qd.init()</span></code> with <code class="docutils literal notranslate"><span class="pre">N</span></code> large enough to cover the real push count (bypasses the sizer).</p></li>
+<li><p><em>Untracked tensor mutation between launches.</em> A tensor backing a data-dependent loop bound was written to outside Quadrants’s tracking - typically a DLPack zero-copy mutation through a torch tensor sharing storage with a Quadrants ndarray, or a raw pointer write through a non-torch consumer. The cached adstack capacity was sized against the value before the mutation; if the mutation grew the bound, the next launch overflows. Workaround: route the write through a Quadrants API (<code class="docutils literal notranslate"><span class="pre">Ndarray.write</span></code> / <code class="docutils literal notranslate"><span class="pre">Ndarray.fill</span></code> / a kernel that writes the value). Alternatively, catch the exception and re-launch - Quadrants invalidates the cached bound on raise, so the retry runs against the live state. Kernel state may be inconsistent after an overflow; do not retry the same step without restarting from a clean state.</p></li>
+<li><p><em>Sizer under-estimated the bound (Quadrants bug).</em> On unusually intricate nested loops - typically deeply nested <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(arr[...])</span></code> with cumulative-index arithmetic - the sizer can compute a bound that is mathematically tighter than the actual push count. To file a bug: clear <code class="docutils literal notranslate"><span class="pre">/tmp/ir/</span></code>, rerun your script with <code class="docutils literal notranslate"><span class="pre">QD_DUMP_IR=1</span></code> set in the environment so Quadrants dumps the kernel IR there, then open an issue on the Quadrants repo with the contents of <code class="docutils literal notranslate"><span class="pre">/tmp/ir/</span></code> attached as a zip. Workaround: pass a generous <code class="docutils literal notranslate"><span class="pre">ad_stack_size=N</span></code> to <code class="docutils literal notranslate"><span class="pre">qd.init()</span></code> with <code class="docutils literal notranslate"><span class="pre">N</span></code> large enough to cover the real push count (bypasses the sizer).</p></li>
 </ul>
-</li>
-<li><p><strong>Out-of-memory before the kernel even runs.</strong> A reverse pass through many loop-carried variables at a large ndrange can ask the runtime for more adstack memory than the device can physically back, even when the sizer’s number is correct. Surfaces as an allocator OOM at launch time. Remedies are the ones listed under <em>Avoiding OOM on GPU</em> above: fewer loop-carried variables, a smaller ndrange, manual checkpointing, or more device-memory headroom.</p></li>
-<li><p><strong>Loop bounds backed by a mutated ndarray.</strong> A reverse-mode kernel with <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[j])</span></code> requires <code class="docutils literal notranslate"><span class="pre">n[j]</span></code> to hold the same value at the forward call and at <code class="docutils literal notranslate"><span class="pre">.grad()</span></code>. If anything writes to <code class="docutils literal notranslate"><span class="pre">n[j]</span></code> between those two points - the differentiable kernel itself, or any other kernel call - the computed gradient may come out wrong, sometimes as an <code class="docutils literal notranslate"><span class="pre">Adstack</span> <span class="pre">overflow</span></code> exception at <code class="docutils literal notranslate"><span class="pre">qd.sync()</span></code>, sometimes silently. The safe rule: populate loop-bound ndarrays before the forward call and leave them untouched until <code class="docutils literal notranslate"><span class="pre">.grad()</span></code> returns. The reason for that is Quadrants’ adstack sizer design: it reads the loop bound separately at each dispatch, which includes forward and backward calls. Tape-based eager AD like <a class="reference external" href="https://pytorch.org/docs/stable/notes/autograd.html">PyTorch’s autograd</a> is not affected, since the trip count is recorded as the forward runs and reused at backward time.</p></li>
-</ul>
+</section>
+<section id="out-of-memory-before-the-kernel-even-runs">
+<h3>Out-of-memory before the kernel even runs<a class="headerlink" href="#out-of-memory-before-the-kernel-even-runs" title="Link to this heading">#</a></h3>
+<p>A reverse pass through many loop-carried variables at a large ndrange can ask the runtime for more adstack memory than the device can physically back, even when the sizer’s number is correct. Surfaces as an allocator OOM at launch time. Remedies are the ones listed under <em>Avoiding OOM on GPU</em> above: fewer loop-carried variables, a smaller ndrange, manual checkpointing, or more device-memory headroom.</p>
+</section>
+<section id="loop-bounds-backed-by-a-mutated-ndarray">
+<h3>Loop bounds backed by a mutated ndarray<a class="headerlink" href="#loop-bounds-backed-by-a-mutated-ndarray" title="Link to this heading">#</a></h3>
+<p>A reverse-mode kernel with <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[j])</span></code> requires <code class="docutils literal notranslate"><span class="pre">n[j]</span></code> to hold the same value at the forward call and at <code class="docutils literal notranslate"><span class="pre">.grad()</span></code>. If anything writes to <code class="docutils literal notranslate"><span class="pre">n[j]</span></code> between those two points - the differentiable kernel itself, or any other kernel call - the backward call will trigger an <code class="docutils literal notranslate"><span class="pre">Adstack</span> <span class="pre">overflow</span></code> exception or the computed gradient would come out silently wrong.</p>
+<p>The safe rule: populate loop-bound ndarrays before the forward call and leave them untouched until <code class="docutils literal notranslate"><span class="pre">.grad()</span></code> returns. The reason for that is Quadrants’ adstack sizer design: it reads the loop bound separately at each dispatch, which includes forward and backward calls. Tape-based eager AD like <a class="reference external" href="https://pytorch.org/docs/stable/notes/autograd.html">PyTorch’s autograd</a> is not affected, since the trip count is recorded as the forward runs and reused at backward time.</p>
+</section>
+<section id="inner-reverse-mode-loop-with-a-complex-bound-at-very-large-extent">
+<h3>Inner reverse-mode loop with a complex bound at very large extent<a class="headerlink" href="#inner-reverse-mode-loop-with-a-complex-bound-at-very-large-extent" title="Link to this heading">#</a></h3>
+<p>A reverse-mode kernel with two nested loops is in some cases limited to an outer-loop extent of at most <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">24</span></code>. In particular when the enclosed loop’s trip count is an uncommon expression of the outer-loop variable, e.g. <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(arr.shape[0]):</span> <span class="pre">...</span> <span class="pre">for</span> <span class="pre">j</span> <span class="pre">in</span> <span class="pre">range(arr[i</span> <span class="pre">//</span> <span class="pre">2]):</span></code>. See <a class="reference internal" href="#appendix-c-evaluation-of-the-enclosed-loop-s-bound-expression">Appendix C</a> for a complete walkthrough of the enclosed loop’s bound expression and workarounds. When the limit applies and the outer extent exceeds it, the kernel raises <code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">...</span> <span class="pre">iteration</span> <span class="pre">count</span> <span class="pre">...</span> <span class="pre">exceeds</span> <span class="pre">the</span> <span class="pre">16777216</span> <span class="pre">guard</span></code> at launch.</p>
+</section>
 </section>
 <section id="performance-characteristics">
 <h2>Performance characteristics<a class="headerlink" href="#performance-characteristics" title="Link to this heading">#</a></h2>
@@ -783,7 +827,7 @@
 </section>
 <section id="appendix-a-types-of-dynamic-loops-supported-by-reverse-mode-ad">
 <h2>Appendix A: types of dynamic loops supported by reverse-mode AD<a class="headerlink" href="#appendix-a-types-of-dynamic-loops-supported-by-reverse-mode-ad" title="Link to this heading">#</a></h2>
-<p>The compiler recognises the following bound shapes for adstack-aware loops:</p>
+<p>The compiler recognizes the following bound shapes for adstack-aware loops:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Bound shape</p></th>
@@ -795,7 +839,7 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(42):</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Scalar integer field (<code class="docutils literal notranslate"><span class="pre">i32</span></code> / <code class="docutils literal notranslate"><span class="pre">i64</span></code>) at a constant or loop index</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[None]):</span></code>, <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[j]):</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[()]):</span></code>, <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(n[j]):</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Ndarray argument shape along any axis</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(arr.shape[1]):</span></code></p></td>
@@ -833,6 +877,12 @@
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
         <span class="k">while</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>              <span class="c1"># bound that can only be known by running the loop body</span>
             <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="nd">@qd</span><span class="o">.</span><span class="n">kernel</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">k_inner_struct_for</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">field</span><span class="p">:</span>               <span class="c1"># struct-for as the enclosed loop with reverse-mode pushes</span>
+            <span class="o">...</span>
 </pre></div>
 </div>
 </section>
@@ -857,6 +907,82 @@
 <li><p><strong>Indirect index via runtime load</strong>: <code class="docutils literal notranslate"><span class="pre">field[other_field[i]]</span></code>; the compiler cannot prove <code class="docutils literal notranslate"><span class="pre">other_field</span></code> is injective.</p></li>
 </ul>
 </section>
+<section id="appendix-c-evaluation-of-the-enclosed-loop-s-bound-expression">
+<h2>Appendix C: evaluation of the enclosed loop’s bound expression<a class="headerlink" href="#appendix-c-evaluation-of-the-enclosed-loop-s-bound-expression" title="Link to this heading">#</a></h2>
+<p>This appendix details how the runtime computes the worst-case trip count of an enclosed reverse-mode loop and which expression shapes each evaluation path accepts. It backs the <em>Inner reverse-mode loop with a complex bound at very large extent</em> entry under <a class="reference internal" href="#what-can-go-wrong">What can go wrong</a>.</p>
+<p>Consider a reverse-mode kernel with two nested loops where the enclosed loop’s iteration count depends on the outer loop variable through an arithmetic expression on an ndarray index:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>       <span class="c1"># outer loop</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">i</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]):</span>    <span class="c1"># enclosed loop: for &lt;var&gt; in range(&lt;bound expression&gt;)</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>The enclosed loop’s iteration count <code class="docutils literal notranslate"><span class="pre">arr[i</span> <span class="pre">//</span> <span class="pre">2]</span></code> is what we call the enclosed loop’s <em>bound expression</em>. It is a function of the outer-loop variable <code class="docutils literal notranslate"><span class="pre">i</span></code>: as <code class="docutils literal notranslate"><span class="pre">i</span></code> ranges over <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">arr.shape[0])</span></code>, the bound expression evaluates to a different integer at each iteration. Reverse-mode autodiff needs the adstack sized for the worst case - the largest inner-loop trip count that will ever occur across the outer loop’s full range, i.e. <code class="docutils literal notranslate"><span class="pre">max(arr[i</span> <span class="pre">//</span> <span class="pre">2]</span> <span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">range(arr.shape[0]))</span></code>. For example, if <code class="docutils literal notranslate"><span class="pre">arr</span> <span class="pre">=</span> <span class="pre">[3,</span> <span class="pre">5,</span> <span class="pre">1]</span></code> and the outer loop runs <code class="docutils literal notranslate"><span class="pre">i</span></code> over <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">6)</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">i</span></code></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">//</span> <span class="pre">2</span></code></p></th>
+<th class="head"><p>bound expression <code class="docutils literal notranslate"><span class="pre">arr[i</span> <span class="pre">//</span> <span class="pre">2]</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>0</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>1</p></td>
+<td><p>5</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>1</p></td>
+<td><p>5</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>2</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>2</p></td>
+<td><p>1</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Quadrants computes that worst case at launch time - in this example, the max of the column above, 5 - and sizes the adstack accordingly: each outer iteration accommodates up to 5 pushes and the adstack never overflows. With deeper loop nests each enclosed loop’s bound expression is reduced separately and the adstack is sized as the product of those maxes.</p>
+<section id="evaluation-paths">
+<h3>Evaluation paths<a class="headerlink" href="#evaluation-paths" title="Link to this heading">#</a></h3>
+<p>The compiler picks one of two evaluation paths to compute the maximum based on the backend and the bound expression’s structure:</p>
+<ul class="simple">
+<li><p><strong>Parallel (GPU only):</strong> the maximum is computed with a tiny parallel reduction kernel for efficiency. The reducer accepts a common subset of bound expressions:</p>
+<ul>
+<li><p><strong>Integer ndarray or field read</strong> up to 32 bits wide, indexed by literal constants or outer-loop variables: <code class="docutils literal notranslate"><span class="pre">arr[i,</span> <span class="pre">j]</span></code>, <code class="docutils literal notranslate"><span class="pre">field[i]</span></code>.</p></li>
+<li><p><strong>Shape term</strong>: <code class="docutils literal notranslate"><span class="pre">arr.shape[k]</span></code>.</p></li>
+<li><p><strong>Literal integer constant</strong>: <code class="docutils literal notranslate"><span class="pre">42</span></code>.</p></li>
+<li><p><strong>Arithmetic combinator</strong>: any <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">max</span></code> of the above.</p></li>
+</ul>
+</li>
+<li><p><strong>Sequential:</strong> the fallback path, used whenever the parallel path doesn’t support the bound expression. Quadrants walks the bound expression one outer-loop iteration at a time on a single thread (host-side on CPU, single-thread on-device kernel on GPU); the adstack is sized identically, only the upfront cost differs. This path accepts everything the parallel path does, plus:</p>
+<ul>
+<li><p><strong>Arithmetic-indexed read</strong>: <code class="docutils literal notranslate"><span class="pre">arr[i</span> <span class="pre">//</span> <span class="pre">2]</span></code>, <code class="docutils literal notranslate"><span class="pre">arr[i</span> <span class="pre">%</span> <span class="pre">4]</span></code>.</p></li>
+<li><p><strong>Indirect / nested read</strong>: <code class="docutils literal notranslate"><span class="pre">arr1[arr2[i]]</span></code>, <code class="docutils literal notranslate"><span class="pre">my_field[arr[i]]</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="nested-loops">
+<h3>Nested loops<a class="headerlink" href="#nested-loops" title="Link to this heading">#</a></h3>
+<p>Quadrants supports arbitrarily nested loops. When the bound expression itself contains another enclosed loop whose own bound expression must be reduced first, the enclosing bound expression takes the parallel path only if every nested bound expression is also supported by the parallel path; otherwise it falls back to the sequential walk. This keeps the runtime from mixing parallel and sequential evaluators inside a single bound expression, which would otherwise force per-iteration kernel launches.</p>
+</section>
+<section id="sequential-walk-cap">
+<h3>Sequential walk cap<a class="headerlink" href="#sequential-walk-cap" title="Link to this heading">#</a></h3>
+<p>The sequential walk’s outer loop is artificially capped at 2^24 = 16 777 216 iterations on GPU backends to keep the walk time bounded; past that the kernel raises <code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">...</span> <span class="pre">iteration</span> <span class="pre">count</span> <span class="pre">...</span> <span class="pre">exceeds</span> <span class="pre">the</span> <span class="pre">16777216</span> <span class="pre">guard</span></code>. In the example above, the iteration count of the enclosed loop takes the sequential path because of the <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">//</span> <span class="pre">2</span></code> index, so it would raise at launch on GPU backends if <code class="docutils literal notranslate"><span class="pre">arr.shape[0]</span> <span class="pre">&gt;</span> <span class="pre">(1</span> <span class="pre">&lt;&lt;</span> <span class="pre">24)</span></code>.</p>
+<p>To circumvent this limitation, rewrite the bound expression to unlock the parallel path (e.g. precompute <code class="docutils literal notranslate"><span class="pre">bounds[i]</span> <span class="pre">=</span> <span class="pre">arr[i</span> <span class="pre">//</span> <span class="pre">2]</span></code> into a persistent separate buffer, pass <code class="docutils literal notranslate"><span class="pre">bounds</span></code> in as an input, and use <code class="docutils literal notranslate"><span class="pre">for</span> <span class="pre">j</span> <span class="pre">in</span> <span class="pre">range(bounds[i]):</span></code>), or keep the outer loop count below 2^24.</p>
+</section>
+</section>
 </section>
 
 
@@ -870,20 +996,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="interop.html"
+       href="metal_shared_queue.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Numpy and Torch interop</p>
+        <p class="prev-next-title">Shared Metal command queue (PyTorch MPS)</p>
       </div>
     </a>
     <a class="right-next"
-       href="subgroup.html"
+       href="gpu_execution_model.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Subgroup primitives</p>
+        <p class="prev-next-title">GPU execution model</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -894,7 +1020,7 @@
             
             
               
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
@@ -928,10 +1054,22 @@
 </li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-can-go-wrong">What can go wrong</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-can-go-wrong">What can go wrong</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#adstack-overflow">Adstack overflow</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#out-of-memory-before-the-kernel-even-runs">Out-of-memory before the kernel even runs</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loop-bounds-backed-by-a-mutated-ndarray">Loop bounds backed by a mutated ndarray</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inner-reverse-mode-loop-with-a-complex-bound-at-very-large-extent">Inner reverse-mode loop with a complex bound at very large extent</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#performance-characteristics">Performance characteristics</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#appendix-a-types-of-dynamic-loops-supported-by-reverse-mode-ad">Appendix A: types of dynamic loops supported by reverse-mode AD</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#appendix-b-gate-index-shapes-that-capture-vs-fall-back-to-the-worst-case-heap">Appendix B: gate-index shapes that capture vs fall back to the worst-case heap</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#appendix-c-evaluation-of-the-enclosed-loop-s-bound-expression">Appendix C: evaluation of the enclosed loop’s bound expression</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-paths">Evaluation paths</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nested-loops">Nested loops</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-walk-cap">Sequential walk cap</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
@@ -957,8 +1095,8 @@
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -978,8 +1116,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
-    <br/>
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.1.
   </p>
 </div>
       
@@ -992,7 +1129,7 @@
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.17.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
 </p></div>
       
     </div>

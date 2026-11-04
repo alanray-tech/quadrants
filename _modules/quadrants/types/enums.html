@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 
@@ -26,8 +25,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
-<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+  <link href="../../../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
@@ -37,14 +36,14 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
-<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
 
     <script src="../../../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -53,12 +52,12 @@
     <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/quadrants/types/enums';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1.0" />
   
@@ -108,7 +107,7 @@
   
     <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
     <span class="fa-solid fa-bars"></span>
   </button>
   
@@ -166,7 +165,7 @@
         <div class="navbar-item navbar-persistent--container">
           
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -176,11 +175,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
     </div>
     
@@ -189,7 +195,7 @@
   
     <div class="navbar-persistent--mobile">
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
  <i class="fa-solid fa-magnifying-glass"></i>
  <span class="search-button__default-text">Search</span>
  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
@@ -210,7 +216,7 @@
       
         
       
-      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
         
 
@@ -251,11 +257,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
       </div>
     
@@ -293,7 +306,7 @@
     
     <li class="breadcrumb-item breadcrumb-home">
       <a href="../../../index.html" class="nav-link" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
+        <i class="fa-solid fa-house"></i>
       </a>
     </li>
     
@@ -319,6 +332,10 @@
   <h1>Source code for quadrants.types.enums</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">quadrants._lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">core</span> <span class="k">as</span> <span class="n">_qd_core</span>
 
+<div class="viewcode-block" id="CPUWorkScheduling">
+<a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.CPUWorkScheduling">[docs]</a>
+<span class="n">CPUWorkScheduling</span> <span class="o">=</span> <span class="n">_qd_core</span><span class="o">.</span><span class="n">CPUWorkScheduling</span></div>
+
 <div class="viewcode-block" id="Layout">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.Layout">[docs]</a>
 <span class="n">Layout</span> <span class="o">=</span> <span class="n">_qd_core</span><span class="o">.</span><span class="n">Layout</span></div>
@@ -342,124 +359,116 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">to_boundary_enum</span><span class="p">(</span><span class="n">boundary</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">boundary</span> <span class="o">==</span> <span class="s2">&quot;clamp&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">boundary</span> <span class="o">==</span> <span class="s2">"clamp"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">BoundaryMode</span><span class="o">.</span><span class="n">CLAMP</span>
-    <span class="k">if</span> <span class="n">boundary</span> <span class="o">==</span> <span class="s2">&quot;unsafe&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">boundary</span> <span class="o">==</span> <span class="s2">"unsafe"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">BoundaryMode</span><span class="o">.</span><span class="n">UNSAFE</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary argument: </span><span class="si">{</span><span class="n">boundary</span><span class="si">}</span><span class="s2">. Valid options: &#39;unsafe&#39;, &#39;clamp&#39;&quot;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid boundary argument: </span><span class="si">{</span><span class="n">boundary</span><span class="si">}</span><span class="s2">. Valid options: 'unsafe', 'clamp'"</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="DeviceCapability">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DeviceCapability</span><span class="p">:</span>
-<div class="viewcode-block" id="DeviceCapability.spirv_version_1_3">
-<a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_version_1_3">[docs]</a>
-    <span class="n">spirv_version_1_3</span> <span class="o">=</span> <span class="s2">&quot;spirv_version=66304&quot;</span></div>
-
-<div class="viewcode-block" id="DeviceCapability.spirv_version_1_4">
-<a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_version_1_4">[docs]</a>
-    <span class="n">spirv_version_1_4</span> <span class="o">=</span> <span class="s2">&quot;spirv_version=66560&quot;</span></div>
-
 <div class="viewcode-block" id="DeviceCapability.spirv_version_1_5">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_version_1_5">[docs]</a>
-    <span class="n">spirv_version_1_5</span> <span class="o">=</span> <span class="s2">&quot;spirv_version=66816&quot;</span></div>
+    <span class="n">spirv_version_1_5</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"spirv_version=</span><span class="si">{</span><span class="mh">0x10500</span><span class="si">}</span><span class="s2">"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_int8">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_int8">[docs]</a>
-    <span class="n">spirv_has_int8</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_int8&quot;</span></div>
+    <span class="n">spirv_has_int8</span> <span class="o">=</span> <span class="s2">"spirv_has_int8"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_int16">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_int16">[docs]</a>
-    <span class="n">spirv_has_int16</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_int16&quot;</span></div>
+    <span class="n">spirv_has_int16</span> <span class="o">=</span> <span class="s2">"spirv_has_int16"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_int64">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_int64">[docs]</a>
-    <span class="n">spirv_has_int64</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_int64&quot;</span></div>
+    <span class="n">spirv_has_int64</span> <span class="o">=</span> <span class="s2">"spirv_has_int64"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_float16">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_float16">[docs]</a>
-    <span class="n">spirv_has_float16</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_float16&quot;</span></div>
+    <span class="n">spirv_has_float16</span> <span class="o">=</span> <span class="s2">"spirv_has_float16"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_float64">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_float64">[docs]</a>
-    <span class="n">spirv_has_float64</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_float64&quot;</span></div>
+    <span class="n">spirv_has_float64</span> <span class="o">=</span> <span class="s2">"spirv_has_float64"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_int64">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_int64">[docs]</a>
-    <span class="n">spirv_has_atomic_int64</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_int64&quot;</span></div>
+    <span class="n">spirv_has_atomic_int64</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_int64"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float16">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float16">[docs]</a>
-    <span class="n">spirv_has_atomic_float16</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float16&quot;</span></div>
+    <span class="n">spirv_has_atomic_float16</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float16"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float16_add">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float16_add">[docs]</a>
-    <span class="n">spirv_has_atomic_float16_add</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float16_add&quot;</span></div>
+    <span class="n">spirv_has_atomic_float16_add</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float16_add"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float16_minmax">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float16_minmax">[docs]</a>
-    <span class="n">spirv_has_atomic_float16_minmax</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float16_minmax&quot;</span></div>
+    <span class="n">spirv_has_atomic_float16_minmax</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float16_minmax"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float">[docs]</a>
-    <span class="n">spirv_has_atomic_float</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float&quot;</span></div>
+    <span class="n">spirv_has_atomic_float</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float_add">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float_add">[docs]</a>
-    <span class="n">spirv_has_atomic_float_add</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float_add&quot;</span></div>
+    <span class="n">spirv_has_atomic_float_add</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float_add"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float_minmax">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float_minmax">[docs]</a>
-    <span class="n">spirv_has_atomic_float_minmax</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float_minmax&quot;</span></div>
+    <span class="n">spirv_has_atomic_float_minmax</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float_minmax"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float64">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float64">[docs]</a>
-    <span class="n">spirv_has_atomic_float64</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float64&quot;</span></div>
+    <span class="n">spirv_has_atomic_float64</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float64"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float64_add">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float64_add">[docs]</a>
-    <span class="n">spirv_has_atomic_float64_add</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float64_add&quot;</span></div>
+    <span class="n">spirv_has_atomic_float64_add</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float64_add"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_atomic_float64_minmax">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_atomic_float64_minmax">[docs]</a>
-    <span class="n">spirv_has_atomic_float64_minmax</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_atomic_float64_minmax&quot;</span></div>
+    <span class="n">spirv_has_atomic_float64_minmax</span> <span class="o">=</span> <span class="s2">"spirv_has_atomic_float64_minmax"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_variable_ptr">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_variable_ptr">[docs]</a>
-    <span class="n">spirv_has_variable_ptr</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_variable_ptr&quot;</span></div>
+    <span class="n">spirv_has_variable_ptr</span> <span class="o">=</span> <span class="s2">"spirv_has_variable_ptr"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_physical_storage_buffer">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_physical_storage_buffer">[docs]</a>
-    <span class="n">spirv_has_physical_storage_buffer</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_physical_storage_buffer&quot;</span></div>
+    <span class="n">spirv_has_physical_storage_buffer</span> <span class="o">=</span> <span class="s2">"spirv_has_physical_storage_buffer"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_subgroup_basic">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_subgroup_basic">[docs]</a>
-    <span class="n">spirv_has_subgroup_basic</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_subgroup_basic&quot;</span></div>
+    <span class="n">spirv_has_subgroup_basic</span> <span class="o">=</span> <span class="s2">"spirv_has_subgroup_basic"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_subgroup_vote">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_subgroup_vote">[docs]</a>
-    <span class="n">spirv_has_subgroup_vote</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_subgroup_vote&quot;</span></div>
+    <span class="n">spirv_has_subgroup_vote</span> <span class="o">=</span> <span class="s2">"spirv_has_subgroup_vote"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_subgroup_arithmetic">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_subgroup_arithmetic">[docs]</a>
-    <span class="n">spirv_has_subgroup_arithmetic</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_subgroup_arithmetic&quot;</span></div>
+    <span class="n">spirv_has_subgroup_arithmetic</span> <span class="o">=</span> <span class="s2">"spirv_has_subgroup_arithmetic"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_subgroup_ballot">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_subgroup_ballot">[docs]</a>
-    <span class="n">spirv_has_subgroup_ballot</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_subgroup_ballot&quot;</span></div>
+    <span class="n">spirv_has_subgroup_ballot</span> <span class="o">=</span> <span class="s2">"spirv_has_subgroup_ballot"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_non_semantic_info">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_non_semantic_info">[docs]</a>
-    <span class="n">spirv_has_non_semantic_info</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_non_semantic_info&quot;</span></div>
+    <span class="n">spirv_has_non_semantic_info</span> <span class="o">=</span> <span class="s2">"spirv_has_non_semantic_info"</span></div>
 
 <div class="viewcode-block" id="DeviceCapability.spirv_has_no_integer_wrap_decoration">
 <a class="viewcode-back" href="../../../autoapi/quadrants/types/enums/index.html#quadrants.types.enums.DeviceCapability.spirv_has_no_integer_wrap_decoration">[docs]</a>
-    <span class="n">spirv_has_no_integer_wrap_decoration</span> <span class="o">=</span> <span class="s2">&quot;spirv_has_no_integer_wrap_decoration&quot;</span></div>
+    <span class="n">spirv_has_no_integer_wrap_decoration</span> <span class="o">=</span> <span class="s2">"spirv_has_no_integer_wrap_decoration"</span></div>
 </div>
 
 
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Layout&quot;</span><span class="p">,</span> <span class="s2">&quot;AutodiffMode&quot;</span><span class="p">,</span> <span class="s2">&quot;SNodeGradType&quot;</span><span class="p">,</span> <span class="s2">&quot;Format&quot;</span><span class="p">,</span> <span class="s2">&quot;BoundaryMode&quot;</span><span class="p">,</span> <span class="s2">&quot;DeviceCapability&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CPUWorkScheduling"</span><span class="p">,</span> <span class="s2">"Layout"</span><span class="p">,</span> <span class="s2">"AutodiffMode"</span><span class="p">,</span> <span class="s2">"SNodeGradType"</span><span class="p">,</span> <span class="s2">"Format"</span><span class="p">,</span> <span class="s2">"BoundaryMode"</span><span class="p">,</span> <span class="s2">"DeviceCapability"</span><span class="p">]</span>
 </pre></div>
 
                 </article>
@@ -489,8 +498,8 @@
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
-<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -510,8 +519,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
-    <br/>
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.1.
   </p>
 </div>
       
@@ -524,7 +532,7 @@
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.17.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
 </p></div>
       
     </div>
