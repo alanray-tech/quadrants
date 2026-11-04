@@ -29,6 +29,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/windows-test-portability` | Three tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and two capfd tests are skipped on Windows | Not submitted |
 | `fix/graph-parallel-serial-section-tasks` | The right-hand side of a bare store in a `qd.graph.parallel()` section is computed in that section's task, not in the previous section's, which raced on the CUDA graph path | Not submitted |
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
+| `fix/cpp-tests-without-vulkan` | The C++ tests link the SPIR-V codegen themselves when Vulkan and Metal are off, so they build in a Vulkan-off build | Not submitted |
 | `perf/cuda-range-rematerialize` | On top of `perf/compile-speed`: on CUDA, scalar range bounds computed in an earlier task, and the loop body's uses of such scalars, are recomputed in the worker instead of passed through a serial task; a bound that reads device memory the loop may write keeps the serial task | Not submitted (follows PR #1024) |
 
 ## Feature notes
@@ -189,6 +190,14 @@ named here are the ones on `dev-fast`.
   which checks the offloaded IR for global temporaries and so fails deterministically without the fix.
 - Not covered: a pure value that CSE shares between two sections is still computed in the first one and read by the
   other through a global temporary.
+
+### C++ tests without Vulkan (`fix/cpp-tests-without-vulkan`)
+
+- The SPIR-V codegen is always built, but `quadrants_core` only links it for the Vulkan and Metal backends: with both
+  off, `quadrants_cpp_tests` failed to link the shader and SPIR-V version tests of `tests/cpp/codegen`. The tests now
+  link it themselves in that case. Build-only change; builds with Vulkan or Metal are unchanged.
+- To build and run the C++ tests: `-DQD_BUILD_TESTS:BOOL=ON` in `CMAKE_ARGS`, then `build/quadrants_cpp_tests.exe` with
+  `QD_LIB_DIR` set to `<quadrants package>/_lib/runtime`. With Vulkan off on Windows: 186 tests, all passing.
 
 ### Windows test portability (`fix/windows-test-portability`)
 
