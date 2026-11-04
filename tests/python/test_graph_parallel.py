@@ -11,6 +11,8 @@ assertions (node counts: one kernel node per qd.graph.parallel section task + on
 apply where the builder forks/joins (CUDA today), so they are guarded by `_on_cuda()`.
 """
 
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -217,6 +219,53 @@ def test_graph_parallel_back_to_back_regions_serial_sections_keep_join():
     k(x, y, a, b)
     np.testing.assert_allclose(a.to_numpy(), 10.0)
     np.testing.assert_allclose(b.to_numpy(), 20.0)
+
+
+@test_utils.test(offline_cache=False)
+def test_graph_parallel_serial_section_computes_its_own_store_value(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The right-hand side of a bare store in a qd.graph.parallel section is emitted before the store. It must be
+    offloaded into the section's own serial task: in the previous section's task, its value would reach the store
+    through a global temporary, between two tasks that the graph may run concurrently, so the store would read the
+    temporary before it is written (zero on the first launch)."""
+    monkeypatch.setenv("QD_DUMP_IR", "1")
+    impl.current_cfg().debug_dump_path = str(tmp_path)
+
+    @qd.kernel(graph=True)
+    def k(
+        x: qd.types.ndarray(qd.f32, ndim=1),
+        y: qd.types.ndarray(qd.f32, ndim=1),
+        a: qd.types.ndarray(qd.f32, ndim=1),
+        b: qd.types.ndarray(qd.f32, ndim=1),
+        c: qd.types.ndarray(qd.f32, ndim=1),
+    ):
+        with qd.graph.parallel_context():
+            with qd.graph.parallel():
+                x[0] = 1.0
+            with qd.graph.parallel():
+                y[0] = 2.0
+        with qd.graph.parallel_context():
+            with qd.graph.parallel():
+                a[0] = x[0] * 10.0 + 1.0
+            with qd.graph.parallel():
+                b[0] = y[0] * 10.0 + 1.0
+        # A bare store after the region reads both sections: its value must not be computed in the last section's task.
+        c[0] = a[0] + b[0]
+
+    arrays = [qd.ndarray(qd.f32, shape=(1,)) for _ in range(5)]
+    for arr in arrays:
+        arr.from_numpy(np.zeros(1, dtype=np.float32))
+    k(*arrays)
+    qd.sync()
+    np.testing.assert_allclose(arrays[2].to_numpy(), 11.0)
+    np.testing.assert_allclose(arrays[3].to_numpy(), 21.0)
+    np.testing.assert_allclose(arrays[4].to_numpy(), 32.0)
+
+    offload_dumps = [f for f in tmp_path.glob("*after_offload*") if "_k_" in f.name or f.name.startswith("k")]
+    assert offload_dumps, f"no after_offload IR dump of k in {sorted(p.name for p in tmp_path.iterdir())}"
+    ir = "\n".join(f.read_text() for f in offload_dumps)
+    assert "global tmp var" not in ir, f"a section's store reads its value from another task:\n{ir}"
 
 
 @test_utils.test()

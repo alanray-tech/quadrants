@@ -234,11 +234,22 @@ class Offloader {
     //     cuModuleLoadDataEx then scales catastrophically (>20min for Genesis's rigid solver kernel).
     //     Letting them inherit the surrounding bucket region is the safe fallback -- they were going to
     //     run at that level under the pre-#744 offloader anyway.
+    //
+    // One exception: a PURE stmt with a trusted tag outside the `qd.graph_parallel()` section of the buffered side
+    // effects closes the bucket first, without setting the next bucket's region. Such a stmt computes the right-hand
+    // side of a later bare store, in another section or after the region; riding along would compute it in this
+    // section's task, concurrently with the sibling sections it may read from, and hand it to the store through a
+    // global temporary across tasks the graph may run concurrently.
     auto push_serial_statement = [&](std::unique_ptr<Stmt> &&serial_stmt) {
       // `is_set` distinguishes "stamped at a known program point" from "still at the struct default
       // because no one touched it" -- see GraphRegionTag's comment in ir.h. A bare top-level stmt
       // legitimately has graph_do_while_level_id=-1 (matching the struct default), so checking
       // `region_tag != GraphRegionTag{}` would wrongly demote it to untrustworthy.
+      if (!serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set && bucket_has_side_effect &&
+          bucket_tag.stream_parallel_group_id != 0 &&
+          serial_stmt->region_tag.stream_parallel_group_id != bucket_tag.stream_parallel_group_id) {
+        assemble_serial_statements();
+      }
       if (serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set) {
         if (bucket_has_side_effect && serial_stmt->region_tag != bucket_tag) {
           assemble_serial_statements();
