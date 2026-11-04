@@ -59,6 +59,11 @@ named here are the ones on `dev-fast`.
 - `external_optimization_level` (`qd.init` option, `0` to `3`, default `3`) now also sets the LLVM optimization and
   code-generation levels (`O0` to `O3`). Lower levels cut the cold compile time of very large kernels and make them
   slower. It is part of the offline-cache key. See `docs/source/user_guide/init_options.md`.
+- On CUDA, level `0` runs the `O1` IR pipeline with `O0` code generation. With the `O0` IR pipeline, workers called
+  their loop bodies through function pointers, the PTX JIT charged every worker for the shared arrays of the whole
+  module, and Genesis' `kernel_radix_sort` (192 KB of shared arrays over its tasks) failed to load with
+  `CUDA_ERROR_INVALID_PTX`. Test: `test_static_shared_arrays_of_many_tasks_without_llvm_optimization`.
+- CUDA: a PTX that fails to load reports the JIT error log (the ptxas messages) with `CUDA_ERROR_INVALID_PTX`.
 - Large graph kernels: the pre-offload pointer CSE is skipped for kernels without field pointers (ndarray-only kernels),
   replacing a frontend statement in lowering no longer scans the whole IR for users, constant folding replaces usages
   through an index built once per fixpoint iteration instead of scanning the IR for every folded statement, and
