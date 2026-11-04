@@ -1,4 +1,5 @@
 import pathlib
+import sys
 
 import pytest
 
@@ -84,6 +85,7 @@ def test_loop_config_name_serialize_ir_dump(tmp_path: pathlib.Path, monkeypatch:
     assert combined.count("loop_name=serial_sum") == 1
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="Windows stderr not working with capfd")
 @test_utils.test(offline_cache=False)
 def test_loop_config_name_nested_loop_warns(capfd: pytest.CaptureFixture[str]):
     # A `name` on a loop nested inside another for-loop is silently dropped (only top-level loops
