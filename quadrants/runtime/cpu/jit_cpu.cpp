@@ -118,7 +118,10 @@ class JITSessionCPU : public JITSession {
 #else
         object_layer_(es_,
                       [&](const MemoryBuffer &) {
-                        auto smgr = std::make_unique<SectionMemoryManager>();
+                        // The COFF linker resolves the IMAGE_REL_AMD64_ADDR32NB relocations of the unwind info as
+                        // 32-bit offsets from the lowest section of the object, so the sections must not be more
+                        // than 4 GB apart: reserve them in one block, in the order code, read-only, read-write.
+                        auto smgr = std::make_unique<SectionMemoryManager>(nullptr, /*ReserveAlloc=*/true);
                         memory_manager_ = smgr.get();
                         return smgr;
                       }),
