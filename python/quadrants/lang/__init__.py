@@ -45,6 +45,7 @@ __all__ = [
         "kernel_arguments",
         "kernel_checkpoint",
         "kernel_impl",
+        "kernel_launch_metadata",
         "matrix",
         "mesh",
         "misc",

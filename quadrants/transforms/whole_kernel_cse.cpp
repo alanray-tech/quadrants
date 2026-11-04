@@ -350,6 +350,16 @@ bool merge_global_ptrs(IRNode *root) {
       }
     }
   }
+  // Ndarray-only kernels have no GlobalPtrStmt before offload (their
+  // ExternalPtrStmt nodes are created by offload below). The pass exists to
+  // unify field read/write pointers before flag_access; without a field
+  // pointer it can only spend time CSE-ing integer address arithmetic that
+  // no pre-offload consumer needs. This guard is one linear IR walk instead
+  // of a potentially quadratic CSE fixpoint over a large graph kernel.
+  auto global_ptrs = irpass::analysis::gather_statements(root, [](Stmt *stmt) { return stmt->is<GlobalPtrStmt>(); });
+  if (global_ptrs.empty()) {
+    return false;
+  }
   return WholeKernelCSE::run(root, /*ptrs_only=*/true);
 }
 

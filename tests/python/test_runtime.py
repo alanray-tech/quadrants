@@ -79,6 +79,7 @@ init_args = {
     "log_level": ["info", ["error", "warn", "info", "debug", "trace"]],
     "gdb_trigger": [False, [True, False]],
     "advanced_optimization": [True, [True, False]],
+    "external_optimization_level": [3, [0, 1, 2, 3]],
     "debug": [False, [True, False]],
     "cpu_fixed_block_dim": [32, [1, 17, 64]],
     "cpu_per_worker_min_block_dim": [512, [1, 16, 512]],

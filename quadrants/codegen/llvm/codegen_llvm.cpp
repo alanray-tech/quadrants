@@ -2198,6 +2198,8 @@ std::tuple<llvm::Value *, llvm::Value *> TaskCodeGenLLVM::get_range_for_bounds(O
   llvm::Value *begin, *end;
   if (stmt->const_begin) {
     begin = tlctx->get_constant(stmt->begin_value);
+  } else if (stmt->range_begin && !stmt->range_begin->statements.empty()) {
+    begin = llvm_val.at(stmt->range_begin->back());
   } else {
     auto begin_stmt = Stmt::make<GlobalTemporaryStmt>(stmt->begin_offset, PrimitiveType::i32);
     begin_stmt->accept(this);
@@ -2205,6 +2207,8 @@ std::tuple<llvm::Value *, llvm::Value *> TaskCodeGenLLVM::get_range_for_bounds(O
   }
   if (stmt->const_end) {
     end = tlctx->get_constant(stmt->end_value);
+  } else if (stmt->range_end && !stmt->range_end->statements.empty()) {
+    end = llvm_val.at(stmt->range_end->back());
   } else {
     auto end_stmt = Stmt::make<GlobalTemporaryStmt>(stmt->end_offset, PrimitiveType::i32);
     end_stmt->accept(this);

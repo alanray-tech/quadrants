@@ -5,6 +5,7 @@
 #include "quadrants/runtime/llvm/llvm_context.h"
 #include "quadrants/codegen/ir_dump.h"
 #include "quadrants/util/environ_config.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Scalar/LoopStrengthReduce.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
@@ -14,6 +15,36 @@
 namespace quadrants::lang {
 
 #if defined(QD_WITH_CUDA)
+
+namespace {
+
+llvm::OptimizationLevel get_llvm_optimization_level(int level) {
+  switch (level) {
+    case 0:
+      return llvm::OptimizationLevel::O0;
+    case 1:
+      return llvm::OptimizationLevel::O1;
+    case 2:
+      return llvm::OptimizationLevel::O2;
+    default:
+      return llvm::OptimizationLevel::O3;
+  }
+}
+
+llvm::CodeGenOptLevel get_codegen_optimization_level(int level) {
+  switch (level) {
+    case 0:
+      return llvm::CodeGenOptLevel::None;
+    case 1:
+      return llvm::CodeGenOptLevel::Less;
+    case 2:
+      return llvm::CodeGenOptLevel::Default;
+    default:
+      return llvm::CodeGenOptLevel::Aggressive;
+  }
+}
+
+}  // namespace
 
 bool module_has_runtime_initialize(const llvm::Module::FunctionListType &function_list) {
   for (auto &func : function_list) {
@@ -221,11 +252,14 @@ std::string JITSessionCUDA::compile_module_to_ptx(std::unique_ptr<llvm::Module> 
     writer.write(module.get());
   }
 
-  std::string llvm_ir_str;
-  llvm::raw_string_ostream llvm_ir_stream(llvm_ir_str);
-  module->print(llvm_ir_stream, nullptr);
-  llvm_ir_stream.flush();
-  std::string ptx_cache_key = ptx_cache_->make_cache_key(llvm_ir_str, this->config_.fast_math);
+  // Bitcode is substantially faster and smaller to serialize than textual LLVM IR for large graph modules. The PTX
+  // cache needs a deterministic module fingerprint, not human-readable source, so avoid paying the text printer cost
+  // on every cold compile and cached process restart.
+  std::string llvm_bitcode;
+  llvm::raw_string_ostream llvm_bitcode_stream(llvm_bitcode);
+  llvm::WriteBitcodeToFile(*module, llvm_bitcode_stream);
+  llvm_bitcode_stream.flush();
+  std::string ptx_cache_key = ptx_cache_->make_cache_key(llvm_bitcode, this->config_.fast_math);
   std::optional<std::string> maybe_ptx = ptx_cache_->load_ptx(ptx_cache_key);
   if (maybe_ptx.has_value()) {
     QD_TRACE("Loaded PTX from cache for module {}", module->getName().str());
@@ -264,9 +298,12 @@ std::string JITSessionCUDA::compile_module_to_ptx(std::unique_ptr<llvm::Module> 
   options.NoZerosInBSS = 0;
   options.GuaranteedTailCallOpt = 0;
 
+  auto optimization_level = this->config_.external_optimization_level;
+  QD_ERROR_IF(optimization_level < 0 || optimization_level > 3,
+              "external_optimization_level must be between 0 and 3, got {}", optimization_level);
   std::unique_ptr<TargetMachine> target_machine(
       target->createTargetMachine(triple, CUDAContext::get_instance().get_mcpu(), "", options, llvm::Reloc::PIC_,
-                                  llvm::CodeModel::Small, CodeGenOptLevel::Aggressive));
+                                  llvm::CodeModel::Small, get_codegen_optimization_level(optimization_level)));
 
   QD_ERROR_UNLESS(target_machine.get(), "Could not allocate target machine!");
 
@@ -291,7 +328,7 @@ std::string JITSessionCUDA::compile_module_to_ptx(std::unique_ptr<llvm::Module> 
   pb.registerLoopAnalyses(lam);
   pb.crossRegisterProxies(lam, fam, cgam, mam);
 
-  llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O3);
+  llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(get_llvm_optimization_level(optimization_level));
 
   // NVidia's libdevice library uses a __nvvm_reflect to choose
   // how to handle denormalized numbers. (The pass replaces calls
