@@ -26,7 +26,8 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/windows-cpu-jit-section-layout` | The CPU JIT allocates the sections of a module in one contiguous block. Fixes `IMAGE_REL_AMD64_ADDR32NB relocation requires an ordered section layout` on Windows in processes that initialized CUDA, and the crash or hang in `Program` teardown that followed it | Not submitted |
 | `fix/fastcache-concurrent-access` | A fastcache entry that fails to read or write because another process holds it counts as a cache miss instead of failing the kernel call | Issue #943 |
 | `fix/checkpoint-yield-after-helper-tasks` | On CPU and AMDGPU, a checkpoint with several dynamic range loops no longer yields after its first loop | Not submitted |
-| `fix/windows-test-portability` | Two tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and a capfd test is skipped on Windows | Not submitted |
+| `fix/windows-test-portability` | Three tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and two capfd tests are skipped on Windows | Not submitted |
+| `fix/graph-parallel-serial-section-tasks` | The right-hand side of a bare store in a `qd.graph.parallel()` section is computed in that section's task, not in the previous section's, which raced on the CUDA graph path | Not submitted |
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
 
 ## Feature notes
@@ -132,24 +133,34 @@ named here are the ones on `dev-fast`.
   maximal run of ordinary work.
 - Tests: the `test_autowrap_*` and `test_grouped_implicit_loops_*` tests in `tests/python/test_checkpoint.py`.
 
+### Serial stores in graph parallel sections (`fix/graph-parallel-serial-section-tasks`)
+
+- The offloader splits buffered serial statements into tasks by the region of their side effects only, so the pure
+  statements computing the right-hand side of a bare store in a `qd.graph.parallel()` section, which come before the
+  store, were computed in the previous section's task and handed to the store through a global temporary. On the CUDA
+  graph path those two tasks can run concurrently: the store read the temporary before it was written (zero on the first
+  launch of the graph, the previous launch's value later). The same happened to a bare store right after a region.
+- Now a section's task is closed before a pure statement from elsewhere, so each store computes its value in its own
+  task. Pure-only tasks keep their previous region and their always-run checkpoint id.
+- Before the fix, `test_graph_parallel_back_to_back_regions_serial_sections_keep_join` failed in 25 of 30 fresh
+  processes on upstream `main`; after it, in none.
+- Tests: `test_graph_parallel_serial_section_computes_its_own_store_value` in `tests/python/test_graph_parallel.py`,
+  which checks the offloaded IR for global temporaries and so fails deterministically without the fix.
+- Not covered: a pure value that CSE shares between two sections is still computed in the first one and read by the
+  other through a global temporary.
+
 ### Windows test portability (`fix/windows-test-portability`)
 
 - `test_read_file_with_arrows` writes its UTF-8 fixture with an explicit encoding, and
-  `test_data_oriented_kernel_read_opaque_member_fails_fastcache` is skipped on Windows, where capfd does not capture
-  stderr. Test-only change.
+  `test_data_oriented_kernel_read_opaque_member_fails_fastcache` and `test_loop_config_name_nested_loop_warns` are
+  skipped on Windows, where capfd does not capture stderr. Test-only change.
 
 ## Verification on Windows
 
-Windows 11, RTX 5090, CUDA, LLVM 22.1.0. On the merged `dev-fast`, the tests of the files that the topics change, on CPU
-and CUDA: 519 passed, and the 3 failures (2 tests) that `fix/windows-test-portability` then fixed. The full quadrants
+Windows 11, RTX 5090, CUDA, LLVM 22.1.0. On the merged `dev-fast`, the test files that the topics change plus the
+graph, checkpoint, offload and autodiff test files, on CPU and CUDA: 708 passed, 19 skipped, 2 xfailed, none failed.
+The three back-to-back `qd.graph.parallel_context()` tests passed 30 runs each in fresh processes. The full quadrants
 test suite has not been run on `dev-fast`.
-
-Known upstream problem: `test_graph_parallel_back_to_back_regions_serial_sections_keep_join` fails intermittently on
-CUDA, 25 of 30 runs on upstream `main` (`b2f658e58`) and 20 of 30 on `dev-fast`. The second
-`qd.graph.parallel_context()` sometimes reads a value that a bare serial store of the first context has not written
-yet, although the graph has the expected join nodes. The two other back-to-back region tests, with for-loop sections,
-never fail. Not investigated yet.
-
 ## Syncing with upstream
 
 ```bash
