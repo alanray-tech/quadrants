@@ -85,8 +85,8 @@ named here are the ones on `dev-fast`.
   and dataclass AST flattening is skipped when a kernel has no dataclass parameters.
 - Tests: `tests/python/test_offload_cross.py`, `tests/python/test_runtime.py`,
   `tests/cpp/runtime/cuda/ptx_cache_test.cpp`, `tests/cpp/transforms/whole_kernel_cse_test.cpp`. There is no benchmark
-  in the repository for the compile-time gains. The C++ tests need `QD_LIB_DIR` set to `<quadrants package>/_lib/runtime`
-  (every test that creates a `Program` throws without it).
+  in the repository for the compile-time gains. The C++ tests need `QD_LIB_DIR` set to
+  `<quadrants package>/_lib/runtime` (every test that creates a `Program` throws without it).
 
 ### NamedTuple members of data-oriented classes (`fix/issue-1040-namedtuple-in-data-oriented`, PR #1050)
 
