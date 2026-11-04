@@ -11,6 +11,7 @@ This file pins what actually works, and documents the gaps.
 """
 
 import dataclasses
+import sys
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -1161,6 +1162,7 @@ def test_data_oriented_kernel_unused_opaque_member_does_not_affect_cache(tmp_pat
     assert run._primal.src_ll_cache_observations.cache_loaded
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="Windows stderr not working with capfd")
 @test_utils.test(arch=qd.cpu)
 def test_data_oriented_kernel_read_opaque_member_fails_fastcache(tmp_path, capfd) -> None:
     """Rule 2: when the kernel actually reads an unrecognised-type member, fastcache fails loudly with [UNKNOWN_TYPE]

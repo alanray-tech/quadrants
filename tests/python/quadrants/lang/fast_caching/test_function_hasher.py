@@ -41,7 +41,7 @@ def test_read_file_with_arrows(monkeypatch, tmp_path: pathlib.Path) -> None:
     This test doesn't actually reproduce the 0xe28094 bug with the hyphen, but anyway
     """
     out_filepath = tmp_path / "somefile.txt"
-    with open(out_filepath, "w") as f:
+    with open(out_filepath, "w", encoding="utf-8") as f:
         f.write(
             """0
 1 →
