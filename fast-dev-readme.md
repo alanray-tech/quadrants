@@ -24,7 +24,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/issue-1040-namedtuple-in-data-oriented` | NamedTuple members of `@qd.data_oriented` classes, iterable with `qd.static` | PR #1050 |
 | `fix/svd-fp64-accuracy` | Rotation thresholds of the fp64 3x3 SVD at fp64 precision | PR #1051 |
 | `fix/windows-cpu-jit-section-layout` | The CPU JIT allocates the sections of a module in one contiguous block. Fixes `IMAGE_REL_AMD64_ADDR32NB relocation requires an ordered section layout` on Windows in processes that initialized CUDA, and the crash or hang in `Program` teardown that followed it | Not submitted |
-| `fix/fastcache-concurrent-access` | A fastcache entry that fails to read or write because another process holds it counts as a cache miss instead of failing the kernel call | Issue #943 |
+| `fix/fastcache-concurrent-access` | Processes sharing an offline cache directory no longer conflict on fastcache entries on Windows, and a read or write that still fails counts as a cache miss instead of failing the kernel call | Issue #943 |
 | `fix/checkpoint-yield-after-helper-tasks` | On CPU and AMDGPU, a checkpoint with several dynamic range loops no longer yields after its first loop | Not submitted |
 | `fix/windows-test-portability` | Three tests failing on Windows: the UTF-8 fixture is written with an explicit encoding, and two capfd tests are skipped on Windows | Not submitted |
 | `fix/graph-parallel-serial-section-tasks` | The right-hand side of a bare store in a `qd.graph.parallel()` section is computed in that section's task, not in the previous section's, which raced on the CUDA graph path | Not submitted |
@@ -102,10 +102,20 @@ named here are the ones on `dev-fast`.
 
 ### Fastcache shared between processes (`fix/fastcache-concurrent-access`, issue #943)
 
-- When another process holds or replaces a Python-side fastcache entry (WinError 5 / Errno 13 on Windows, a stale NFS
-  handle on Linux), a failed read is a cache miss with a warning, a failed store is skipped, and a failed date update
-  after a read is ignored. Before, the kernel call failed.
-- Tests: `tests/python/quadrants/lang/fast_caching/test_python_side_cache.py`.
+- On Windows, the builtin `open` and `os.utime` open a file without `FILE_SHARE_DELETE`, so `os.replace` onto a
+  fastcache entry that another process reads or touches failed with WinError 5, and opening an entry while it was
+  replaced failed with Errno 13. Entries are now read and touched through handles shared for deletion
+  (`_fast_caching/_win_shared_file.py`) and replaced with a POSIX-semantics rename, which swaps the name while other
+  handles are open; those keep reading the previous content. File systems without POSIX rename support fall back to
+  `os.replace`.
+- On every platform, a read that still fails (or a stale NFS handle on Linux) is a cache miss with a warning, a store
+  that still fails is skipped, and a failed date update after a read is ignored. Before, the kernel call failed.
+- Four processes storing and loading one key for 8 s: 7433 failed replaces, 1842 failed reads and 68 failed touches
+  with the builtin calls, none with the shared handles.
+- An entry another process reads with an older quadrants (builtin `open`, no `FILE_SHARE_DELETE`) still blocks the
+  replace: that store is skipped.
+- Tests: `tests/python/quadrants/lang/fast_caching/test_python_side_cache.py`, including a Windows-only one that
+  replaces and reads an entry while a shared handle holds it open.
 
 ### Checkpoint yield with dynamic ranges (`fix/checkpoint-yield-after-helper-tasks`)
 
