@@ -3,6 +3,7 @@
 #include "quadrants/ir/transforms.h"
 #include "quadrants/ir/analysis.h"
 #include "quadrants/ir/visitors.h"
+#include "quadrants/ir/type_utils.h"
 #include "quadrants/program/program.h"
 
 #include <set>
@@ -33,6 +34,40 @@ bool demotable_axis_load(Stmt *stmt) {
   return true;
 }
 
+// Integer arithmetic over scalar arguments, constants and ndarray shapes. Its value does not depend on where it is
+// evaluated, so a CUDA task can recompute it instead of reading it from a global temporary written by an earlier
+// serial task. Memory loads, calls, random values and thread-dependent values keep their evaluation point.
+bool is_cuda_rematerializable_scalar(Stmt *root) {
+  std::unordered_set<Stmt *> visited;
+  std::vector<Stmt *> pending{root};
+  while (!pending.empty()) {
+    Stmt *stmt = pending.back();
+    pending.pop_back();
+    if (stmt == nullptr || !is_integral(stmt->ret_type)) {
+      return false;
+    }
+    if (!visited.insert(stmt).second) {
+      continue;
+    }
+    if (auto *arg = stmt->cast<ArgLoadStmt>()) {
+      if (arg->is_ptr || !arg->create_load) {
+        return false;
+      }
+      continue;
+    }
+    if (stmt->is<ConstStmt>() || stmt->is<ExternalTensorShapeAlongAxisStmt>()) {
+      continue;
+    }
+    if (!stmt->is<UnaryOpStmt>() && !stmt->is<BinaryOpStmt>() && !stmt->is<TernaryOpStmt>()) {
+      return false;
+    }
+    for (Stmt *operand : stmt->get_operands()) {
+      pending.push_back(operand);
+    }
+  }
+  return true;
+}
+
 bool is_cuda_range_bound_expression(Stmt *stmt) {
   if (stmt->has_global_side_effect()) {
     return false;
@@ -58,7 +93,10 @@ bool collect_cuda_range_bound_dag(Stmt *stmt,
                                   std::unordered_set<Stmt *> &visiting,
                                   std::unordered_set<Stmt *> &collected,
                                   std::vector<Stmt *> &postorder) {
-  if (stmt == nullptr || stmt->parent != source || !is_cuda_range_bound_expression(stmt)) {
+  // Memory loads must stay after the stores buffered with them in the serial bucket the loop flushes; a
+  // rematerializable scalar may come from any earlier task.
+  if (stmt == nullptr || !is_cuda_range_bound_expression(stmt) ||
+      (stmt->parent != source && !is_cuda_rematerializable_scalar(stmt))) {
     return false;
   }
   if (collected.find(stmt) != collected.end()) {
@@ -79,11 +117,50 @@ bool collect_cuda_range_bound_dag(Stmt *stmt,
   return true;
 }
 
-std::unique_ptr<Block> clone_cuda_range_bound(Stmt *value, Block *source) {
+// Every worker evaluates an inlined bound when it enters the grid-stride loop, whereas the global-temporary path
+// reads it once before the launch. They agree only if no iteration writes the memory the bound reads.
+bool loop_may_write_bound_memory(const std::vector<Stmt *> &bound, Block *loop_body) {
+  std::vector<Stmt *> loaded;
+  for (Stmt *stmt : bound) {
+    if (stmt->is<GlobalLoadStmt>()) {
+      for (Stmt *ptr : irpass::analysis::get_load_pointers(stmt, /*get_aliased=*/true)) {
+        if (ptr != nullptr) {
+          loaded.push_back(ptr);
+        }
+      }
+    }
+  }
+  if (loaded.empty()) {
+    return false;
+  }
+  auto writes = irpass::analysis::gather_statements(loop_body, [&](Stmt *stmt) {
+    if (stmt->is<AllocaStmt>() || stmt->is<LocalStoreStmt>()) {
+      return false;
+    }
+    if (stmt->is<FuncCallStmt>() || stmt->is<ExternalFuncCallStmt>()) {
+      return true;
+    }
+    for (Stmt *dest : irpass::analysis::get_store_destination(stmt, /*get_aliased=*/true)) {
+      if (dest == nullptr) {
+        continue;
+      }
+      for (Stmt *ptr : loaded) {
+        if (irpass::analysis::maybe_same_address(ptr, dest)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  });
+  return !writes.empty();
+}
+
+std::unique_ptr<Block> clone_cuda_range_bound(Stmt *value, Block *source, Block *loop_body) {
   std::unordered_set<Stmt *> visiting;
   std::unordered_set<Stmt *> collected;
   std::vector<Stmt *> postorder;
-  if (!collect_cuda_range_bound_dag(value, source, visiting, collected, postorder)) {
+  if (!collect_cuda_range_bound_dag(value, source, visiting, collected, postorder) ||
+      loop_may_write_bound_memory(postorder, loop_body)) {
     return nullptr;
   }
 
@@ -276,10 +353,10 @@ class Offloader {
         std::unique_ptr<Block> range_end;
         if (arch == Arch::cuda && !DetectAdStackAlloca::run(s->body.get())) {
           if (!s->begin->is<ConstStmt>()) {
-            range_begin = clone_cuda_range_bound(s->begin, pending_serial_statements->body.get());
+            range_begin = clone_cuda_range_bound(s->begin, pending_serial_statements->body.get(), s->body.get());
           }
           if (!s->end->is<ConstStmt>()) {
-            range_end = clone_cuda_range_bound(s->end, pending_serial_statements->body.get());
+            range_end = clone_cuda_range_bound(s->end, pending_serial_statements->body.get(), s->body.get());
           }
         }
         GraphRegionTag pre_for_tag{s->graph_do_while_level_id, s->stream_parallel_group_id};
@@ -521,8 +598,12 @@ class IdentifyValuesUsedInOtherOffloads : public BasicStmtVisitor {
  private:
   IdentifyValuesUsedInOtherOffloads(const CompileConfig &config,
                                     const std::unordered_map<Stmt *, Stmt *> &stmt_to_offloaded,
-                                    OffloadedRanges *offloaded_ranges)
-      : config_(config), stmt_to_offloaded_(stmt_to_offloaded), offloaded_ranges_(offloaded_ranges) {
+                                    OffloadedRanges *offloaded_ranges,
+                                    bool rematerialize_cuda)
+      : config_(config),
+        rematerialize_cuda_(rematerialize_cuda),
+        stmt_to_offloaded_(stmt_to_offloaded),
+        offloaded_ranges_(offloaded_ranges) {
     allow_undefined_visitor = true;
     invoke_default_visitor = true;
     current_offloaded_ = nullptr;
@@ -555,11 +636,12 @@ class IdentifyValuesUsedInOtherOffloads : public BasicStmtVisitor {
  public:
   void visit(OffloadedStmt *stmt) override {
     current_offloaded_ = stmt;
+    // A bound left on the global-temporary path is read by the launcher, so it is always promoted.
     if (auto begin = offloaded_ranges_->begin_stmts.find(stmt); begin != offloaded_ranges_->begin_stmts.end()) {
-      test_and_allocate(begin->second);
+      test_and_allocate(begin->second, /*rematerializable=*/false);
     }
     if (auto end = offloaded_ranges_->end_stmts.find(stmt); end != offloaded_ranges_->end_stmts.end()) {
-      test_and_allocate(end->second);
+      test_and_allocate(end->second, /*rematerializable=*/false);
     }
     if (stmt->body)
       stmt->body->accept(this);
@@ -570,7 +652,7 @@ class IdentifyValuesUsedInOtherOffloads : public BasicStmtVisitor {
     QD_ASSERT(current_offloaded_);
   }
 
-  void test_and_allocate(Stmt *stmt) {
+  void test_and_allocate(Stmt *stmt, bool rematerializable = true) {
     if (stmt == nullptr)
       return;
     if (stmt_to_offloaded_[stmt] == current_offloaded_)
@@ -584,6 +666,9 @@ class IdentifyValuesUsedInOtherOffloads : public BasicStmtVisitor {
         (stmt->is<ArgLoadStmt>() && (stmt->as<ArgLoadStmt>()->is_ptr || !stmt->as<ArgLoadStmt>()->create_load)))
       return;
     if ((config_.arch == Arch::vulkan || config_.arch == Arch::metal) && demotable_axis_load(stmt))
+      return;
+    // FixCrossOffloadReferences clones a value that is not promoted into the task that uses it.
+    if (rematerializable && rematerialize_cuda_ && is_cuda_rematerializable_scalar(stmt))
       return;
     // Not yet allocated
     if (local_to_global_.find(top_level_ptr) == local_to_global_.end()) {
@@ -610,14 +695,16 @@ class IdentifyValuesUsedInOtherOffloads : public BasicStmtVisitor {
   static StmtToOffsetMap run(IRNode *root,
                              const CompileConfig &config,
                              const std::unordered_map<Stmt *, Stmt *> &stmt_to_offloaded,
-                             OffloadedRanges *offloaded_ranges) {
-    IdentifyValuesUsedInOtherOffloads pass(config, stmt_to_offloaded, offloaded_ranges);
+                             OffloadedRanges *offloaded_ranges,
+                             bool rematerialize_cuda) {
+    IdentifyValuesUsedInOtherOffloads pass(config, stmt_to_offloaded, offloaded_ranges, rematerialize_cuda);
     root->accept(&pass);
     return pass.local_to_global_;
   }
 
  private:
   CompileConfig config_;
+  bool rematerialize_cuda_;
   std::unordered_map<Stmt *, Stmt *> stmt_to_offloaded_;
   OffloadedRanges *const offloaded_ranges_;
   // Local variables to global temporary offsets (in bytes)
@@ -931,12 +1018,20 @@ void associate_continue_scope(IRNode *root, const CompileConfig &config) {
 
 void offload(IRNode *root, const CompileConfig &config) {
   QD_AUTO_PROF;
+  // The reverse-mode launcher sizes adstacks from the bound temporaries of the serial tasks, so a kernel with an
+  // adstack keeps every scalar on the global-temporary path.
+  const bool rematerialize_cuda = config.arch == Arch::cuda && !DetectAdStackAlloca::run(root);
+  if (rematerialize_cuda) {
+    // Without CFG optimization, a named local such as `n = x.shape[0]` can still reach offloading as a local load,
+    // which would keep its value on the global-temporary path.
+    eliminate_immutable_local_vars(root);
+  }
   auto offloaded_ranges = Offloader::run(root, config);
   type_check(root, config);
   {
     auto stmt_to_offloaded = StmtToOffloaded::run(root);
     const auto local_to_global_offset =
-        IdentifyValuesUsedInOtherOffloads::run(root, config, stmt_to_offloaded, &offloaded_ranges);
+        IdentifyValuesUsedInOtherOffloads::run(root, config, stmt_to_offloaded, &offloaded_ranges, rematerialize_cuda);
     PromoteIntermediateToGlobalTmp::run(root, &local_to_global_offset);
     stmt_to_offloaded = StmtToOffloaded::run(root);
     FixCrossOffloadReferences::run(root, config, &local_to_global_offset, stmt_to_offloaded, &offloaded_ranges);
