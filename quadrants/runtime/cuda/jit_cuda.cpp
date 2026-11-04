@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <chrono>
 #include <random>
+#include <vector>
 
 #include "quadrants/runtime/cuda/jit_cuda.h"
 #include "quadrants/runtime/llvm/llvm_context.h"
@@ -201,9 +203,21 @@ JITModule *JITSessionCUDA::add_module(std::unique_ptr<llvm::Module> M, int max_r
     num_options++;
   }
 
+  // A PTX that the JIT rejects reports why, instead of only CUDA_ERROR_INVALID_PTX.
+  constexpr std::size_t error_log_size = 1 << 14;
+  std::vector<char> error_log(error_log_size, '\0');
+  options[num_options] = CU_JIT_ERROR_LOG_BUFFER;
+  option_values[num_options] = error_log.data();
+  num_options++;
+  options[num_options] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
+  option_values[num_options] = reinterpret_cast<void *>(error_log_size);
+  num_options++;
+
   QD_ASSERT(num_options <= max_num_options);
 
-  CUDADriver::get_instance().module_load_data_ex(&cuda_module, ptx.c_str(), num_options, options, option_values);
+  auto &load = CUDADriver::get_instance().module_load_data_ex;
+  auto err = load.call(&cuda_module, ptx.c_str(), num_options, options, option_values);
+  QD_ERROR_IF(err, "{}\n{}", load.get_error_message(err), error_log.data());
   QD_TRACE("CUDA module load time : {}ms", (Time::get_time() - t) * 1000);
   // cudaModules.push_back(cudaModule);
   modules.push_back(std::make_unique<JITModuleCUDA>(cuda_module));
@@ -328,7 +342,12 @@ std::string JITSessionCUDA::compile_module_to_ptx(std::unique_ptr<llvm::Module> 
   pb.registerLoopAnalyses(lam);
   pb.crossRegisterProxies(lam, fam, cgam, mam);
 
-  llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(get_llvm_optimization_level(optimization_level));
+  // The IR pipeline runs at least at O1: without inlining, a worker calls its loop body through a function pointer,
+  // and the PTX JIT charges an entry with indirect calls for the static shared arrays of every function of the
+  // module, which exceeds the shared memory of a block once several tasks of a kernel use large shared arrays. Code
+  // generation still follows the requested level.
+  llvm::ModulePassManager mpm =
+      pb.buildPerModuleDefaultPipeline(get_llvm_optimization_level(std::max(optimization_level, 1)));
 
   // NVidia's libdevice library uses a __nvvm_reflect to choose
   // how to handle denormalized numbers. (The pass replaces calls

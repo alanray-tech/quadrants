@@ -143,6 +143,34 @@ def test_shared_array_not_accumulated_across_offloads(num_dim, first_shape_delta
     assert np.array_equal(out.to_numpy(), expected)
 
 
+@test_utils.test(arch=qd.cuda, external_optimization_level=0, offline_cache=False)
+def test_static_shared_arrays_of_many_tasks_without_llvm_optimization():
+    # Each task has a static shared array of 40 KB; together they exceed the shared memory of a block. Without
+    # inlining, a worker calls its loop body through a function pointer, and the PTX JIT charges an entry with indirect
+    # calls for the shared arrays of every function of the module.
+    block_dim = 128
+    n = 10240
+    n_tasks = qd.lang.impl.get_max_shared_memory_bytes(is_lowerbound_ok=True) // (4 * n) + 1
+    out = qd.ndarray(qd.f32, shape=(n_tasks, block_dim))
+
+    @qd.kernel
+    def many_tasks(out: qd.types.ndarray(qd.f32, 2)):
+        for t in qd.static(range(n_tasks)):
+            qd.loop_config(block_dim=block_dim)
+            for tid in range(block_dim):
+                buf = qd.simt.block.SharedArray((n,), qd.f32)
+                i = tid
+                while i < n:
+                    buf[i] = qd.cast((t + 1) * i, qd.f32)
+                    i += block_dim
+                qd.simt.block.sync()
+                out[t, tid] = buf[n - 1 - tid]
+
+    many_tasks(out)
+    last = np.arange(n - 1, n - 1 - block_dim, -1, dtype=np.float32)
+    np.testing.assert_array_equal(out.to_numpy(), np.stack([(t + 1) * last for t in range(n_tasks)]))
+
+
 @pytest.mark.parametrize("graph", [False, True])
 @test_utils.test(arch=[qd.cuda], print_full_traceback=False)
 def test_large_shared_array(graph):

@@ -29,7 +29,7 @@ Whether to run the control-flow-graph optimization (an internal compile-time opt
 
 ### `external_optimization_level`
 
-Backend compiler optimization level from `0` through `3`. The LLVM backends map this to `O0` through `O3`, including the matching target code-generation level. The default is `3`. Lower levels can substantially reduce cold compilation time for very large kernels at the cost of runtime performance. The value is included in the offline-cache key, so changing it creates a separate cached kernel.
+Backend compiler optimization level from `0` through `3`. The LLVM backends map this to `O0` through `O3`, including the matching target code-generation level. On CUDA, `0` runs the `O1` IR pipeline with `O0` code generation: without inlining, every task of a kernel would be charged for the shared arrays of all its tasks, which fails to load once they exceed the shared memory of a block. The default is `3`. Lower levels can substantially reduce cold compilation time for very large kernels at the cost of runtime performance. The value is included in the offline-cache key, so changing it creates a separate cached kernel.
 
 ### `fast_math`
 
