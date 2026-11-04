@@ -403,7 +403,14 @@ KernelLauncher::Handle KernelLauncher::register_llvm_kernel(const LLVM::Compiled
         continue;
       }
       ctx.has_any_checkpoint = true;
-      bool is_last_in_run = (i + 1 == ctx.task_funcs.size()) || ctx.checkpoint_id_per_task[i + 1] != cp_id;
+      // The bound helper task of a dynamic range-for is emitted with cp_id -1 (unconditional, so a resume cannot gate
+      // away a value a later checkpoint reads) between the tasks of one checkpoint body: skip it, or a body with two
+      // such loops would yield, and skip its second loop, right after the first.
+      std::size_t next = i + 1;
+      while (next < ctx.task_funcs.size() && ctx.checkpoint_id_per_task[next] < 0) {
+        ++next;
+      }
+      bool is_last_in_run = next == ctx.task_funcs.size() || ctx.checkpoint_id_per_task[next] != cp_id;
       if (is_last_in_run) {
         ctx.is_last_task_of_yielding_checkpoint[i] = true;
       }
