@@ -40,8 +40,12 @@ class PythonSideCache:
         """
         Updates file date/time.
         """
-        with open(filepath, "a"):
-            os.utime(filepath, None)
+        try:
+            with open(filepath, "a"):
+                os.utime(filepath, None)
+        except OSError:
+            # Another process is replacing or removing the entry; the date only drives a future LRU cleanup
+            pass
 
     def store(self, fast_cache_key: str, value: str) -> None:
         filepath = self._get_filepath(fast_cache_key)
@@ -53,7 +57,15 @@ class PythonSideCache:
             f.write(value)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_path, filepath)
+        try:
+            os.replace(tmp_path, filepath)
+        except OSError:
+            # Windows refuses to replace an entry that another process has open, and that process stores an
+            # equivalent value: skip this store rather than fail the kernel call
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def try_load(self, fast_cache_key: str) -> str | None:
         filepath = self._get_filepath(fast_cache_key)
@@ -62,8 +74,9 @@ class PythonSideCache:
         try:
             with open(filepath) as f:
                 res = f.read()
-            self._touch(filepath)
-            return res
-        except (pydantic.ValidationError, json.JSONDecodeError, UnicodeDecodeError) as e:
+        except (OSError, pydantic.ValidationError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            # OSError: another process replaced or removed the entry meanwhile (Windows, or a stale NFS handle)
             warnings.warn(f"Failed to read from cache at {filepath} {e}")
-        return None
+            return None
+        self._touch(filepath)
+        return res
