@@ -1,11 +1,29 @@
 import json
 import os
+import sys
 import tempfile
 import warnings
 
 import pydantic
 
 from .. import impl
+
+if sys.platform == "win32":
+    # Lets processes sharing the cache directory read, replace and touch one entry at once
+    from ._win_shared_file import read_text as _read_text
+    from ._win_shared_file import replace as _replace
+    from ._win_shared_file import touch as _touch_file
+else:
+
+    def _read_text(path: str) -> str:
+        with open(path) as f:
+            return f.read()
+
+    _replace = os.replace
+
+    def _touch_file(path: str) -> None:
+        with open(path, "a"):
+            os.utime(path, None)
 
 
 class PythonSideCache:
@@ -41,8 +59,7 @@ class PythonSideCache:
         Updates file date/time.
         """
         try:
-            with open(filepath, "a"):
-                os.utime(filepath, None)
+            _touch_file(filepath)
         except OSError:
             # Another process is replacing or removing the entry; the date only drives a future LRU cleanup
             pass
@@ -58,10 +75,10 @@ class PythonSideCache:
             f.flush()
             os.fsync(f.fileno())
         try:
-            os.replace(tmp_path, filepath)
+            _replace(tmp_path, filepath)
         except OSError:
-            # Windows refuses to replace an entry that another process has open, and that process stores an
-            # equivalent value: skip this store rather than fail the kernel call
+            # The entry could not be replaced (on Windows without POSIX rename support, another process has it open),
+            # and that process stores an equivalent value: skip this store rather than fail the kernel call
             try:
                 os.unlink(tmp_path)
             except OSError:
@@ -72,8 +89,7 @@ class PythonSideCache:
         if not os.path.isfile(filepath):
             return None
         try:
-            with open(filepath) as f:
-                res = f.read()
+            res = _read_text(filepath)
         except (OSError, pydantic.ValidationError, json.JSONDecodeError, UnicodeDecodeError) as e:
             # OSError: another process replaced or removed the entry meanwhile (Windows, or a stale NFS handle)
             warnings.warn(f"Failed to read from cache at {filepath} {e}")
