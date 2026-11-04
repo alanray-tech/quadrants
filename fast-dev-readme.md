@@ -145,9 +145,10 @@ and CUDA: 519 passed, and the 3 failures (2 tests) that `fix/windows-test-portab
 test suite has not been run on `dev-fast`.
 
 Known upstream problem: `test_graph_parallel_back_to_back_regions_serial_sections_keep_join` fails intermittently on
-CUDA, 25 of 30 runs on upstream `main` (`b2f658e58`) and 20 of 30 on `dev-fast`. The second `qd.graph.parallel_context()`
-sometimes reads a value that a bare serial store of the first context has not written yet, although the graph has the
-expected join nodes. The two other back-to-back region tests, with for-loop sections, never fail. Not investigated yet.
+CUDA, 25 of 30 runs on upstream `main` (`b2f658e58`) and 20 of 30 on `dev-fast`. The second
+`qd.graph.parallel_context()` sometimes reads a value that a bare serial store of the first context has not written
+yet, although the graph has the expected join nodes. The two other back-to-back region tests, with for-loop sections,
+never fail. Not investigated yet.
 
 ## Syncing with upstream
 
