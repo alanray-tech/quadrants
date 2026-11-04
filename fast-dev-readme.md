@@ -20,7 +20,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | Topic branch | Content | Upstream status |
 |---|---|---|
 | `fix/issue-750-nested-checkpoint` | Checkpoints that contain graph do-while loops, plus a one-line fix keeping the `kernel_launch_metadata` module out of `qd.__all__` | PR #944 (the one-line fix is fork-only) |
-| `perf/compile-speed` | On top of the previous branch: `qd.graph.parallel_context()` inside checkpoints; faster compilation of large graph kernels (LLVM optimization level follows `external_optimization_level`); grid-stride launches clamped to resident occupancy; dynamic range bounds inlined into the worker on CUDA instead of a separate serial kernel; LLVM modules stored as bitcode in the offline cache; PTX cache keys from bitcode fingerprints; cached function source; no AST flattening of empty dataclasses | Not submitted |
+| `perf/compile-speed` | On top of the previous branch: `qd.graph.parallel_context()` inside checkpoints; faster compilation of large graph kernels (LLVM optimization level follows `external_optimization_level`); grid-stride launches clamped to resident occupancy; dynamic range bounds inlined into the worker on CUDA instead of a separate serial kernel; LLVM modules stored as bitcode in the offline cache; PTX cache keys from bitcode fingerprints; cached function source; no AST flattening of empty dataclasses; whole-kernel CSE with a per-round use index (upstream PR #1013, cherry-picked) | Not submitted (the CSE part is PR #1013) |
 | `fix/issue-1040-namedtuple-in-data-oriented` | NamedTuple members of `@qd.data_oriented` classes, iterable with `qd.static` | PR #1050 |
 | `fix/svd-fp64-accuracy` | Rotation thresholds of the fp64 3x3 SVD at fp64 precision | PR #1051 |
 | `fix/windows-cpu-jit-section-layout` | The CPU JIT allocates the sections of a module in one contiguous block. Fixes `IMAGE_REL_AMD64_ADDR32NB relocation requires an ordered section layout` on Windows in processes that initialized CUDA, and the crash or hang in `Program` teardown that followed it | Not submitted |
@@ -64,8 +64,12 @@ named here are the ones on `dev-fast`.
   module, and Genesis' `kernel_radix_sort` (192 KB of shared arrays over its tasks) failed to load with
   `CUDA_ERROR_INVALID_PTX`. Test: `test_static_shared_arrays_of_many_tasks_without_llvm_optimization`.
 - CUDA: a PTX that fails to load reports the JIT error log (the ptxas messages) with `CUDA_ERROR_INVALID_PTX`.
-- Large graph kernels: the pre-offload pointer CSE is skipped for kernels without field pointers (ndarray-only kernels),
-  replacing a frontend statement in lowering no longer scans the whole IR for users, constant folding replaces usages
+- Large graph kernels: whole-kernel CSE rewrites the users of an eliminated statement through a use index built once
+  per round, and erases a round's eliminated statements in one pass per block (the 3 commits of upstream PR #1013 by
+  Roushelfy, cherry-picked), so the pre-offload pointer CSE is linear instead of quadratic in the kernel size. It runs
+  on every kernel again, as upstream: an earlier early return for kernels without field pointers is dropped (on the
+  PR19 Genesis scene it saved 0.4 s of a 40-55 s build, and changed 42 of 72 PTX modules away from upstream).
+  Replacing a frontend statement in lowering no longer scans the whole IR for users, constant folding replaces usages
   through an index built once per fixpoint iteration instead of scanning the IR for every folded statement, and
   `bit_loop_vectorize` skips its dead-code elimination when the kernel has no quant-array loop.
 - CUDA: a range-for whose bounds are read at run time used to be lowered to a serial helper kernel that computes the
@@ -80,7 +84,9 @@ named here are the ones on `dev-fast`.
 - Python: the source text of each `qd.func` / `qd.kernel` is read and dedented once instead of at every inline site,
   and dataclass AST flattening is skipped when a kernel has no dataclass parameters.
 - Tests: `tests/python/test_offload_cross.py`, `tests/python/test_runtime.py`,
-  `tests/cpp/runtime/cuda/ptx_cache_test.cpp`. There is no benchmark in the repository for the compile-time gains.
+  `tests/cpp/runtime/cuda/ptx_cache_test.cpp`, `tests/cpp/transforms/whole_kernel_cse_test.cpp`. There is no benchmark
+  in the repository for the compile-time gains. The C++ tests need `QD_LIB_DIR` set to `<quadrants package>/_lib/runtime`
+  (every test that creates a `Program` throws without it).
 
 ### NamedTuple members of data-oriented classes (`fix/issue-1040-namedtuple-in-data-oriented`, PR #1050)
 
