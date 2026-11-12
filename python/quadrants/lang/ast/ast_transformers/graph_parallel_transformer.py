@@ -71,19 +71,10 @@ class GraphParallelTransformer:
         kernel = ctx.global_context.current_kernel
         if kernel is None or not kernel.use_graph:
             raise QuadrantsSyntaxError("qd.graph.parallel_context() requires @qd.kernel(graph=True)")
-        # In a checkpoints=True kernel a region must be lexically inside an explicit qd.checkpoint. The checkpoint
-        # transform leaves ASTBuilder's current checkpoint active while this body is lowered, so every section task
-        # carries the same non-negative checkpoint_id. GraphManager then builds the fork/join inside that checkpoint's
-        # conditional body; resume skips or replays the entire region exactly like ordinary checkpoint work.
-        #
-        # A region outside qd.checkpoint remains invalid: auto_wrap_for_loops deliberately does not recurse into this
-        # `with`, so its section tasks would carry checkpoint_id == -1 and run unconditionally on resume.
-        if kernel.use_checkpoints and not getattr(ctx, "_in_checkpoint", False):
-            raise QuadrantsSyntaxError(
-                "qd.graph.parallel_context() in a @qd.kernel(graph=True, checkpoints=True) kernel must be inside an "
-                "explicit qd.checkpoint(...): the checkpoint owns the complete fork/join region for yield/resume. "
-                "Move the region into a qd.checkpoint() block."
-            )
+        # In a checkpoints=True kernel the ASTBuilder keeps a checkpoint active while this body is lowered (the explicit
+        # qd.checkpoint around the region, or else the implicit one the region's statements fall in), so every section
+        # task carries the same non-negative checkpoint_id. GraphManager then builds the fork/join inside that
+        # checkpoint's conditional body; resume skips or replays the entire region like ordinary checkpoint work.
         if getattr(ctx, "_in_graph_parallel_context", False):
             raise QuadrantsSyntaxError("qd.graph.parallel_context() regions cannot be nested")
         if getattr(ctx, "_in_parallel_section", False):

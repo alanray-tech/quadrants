@@ -273,6 +273,30 @@ Inside `qd.graph.do_while`, the selected resume point applies only to the first 
 - you must therefore ensure that re-running this checkpoint will not break the algorithm
 - for example make sure that any check that lead to the yield do not modify any data before yielding
 
+### What belongs to a checkpoint
+
+Every task of a `checkpoints=True` kernel belongs to a checkpoint, whatever it comes from: a `for`-loop written in the kernel, the loops of an inlined `@qd.func`, the body of an `if qd.static(...)`, or a bare statement.
+
+- Inside `with qd.checkpoint(...)`, all of them belong to that checkpoint: the yield check runs after the last of them, and a resume re-runs all of them.
+- Outside explicit checkpoints, each maximal run of them, up to an explicit checkpoint or a `qd.graph.do_while` boundary, forms one implicit checkpoint. An implicit checkpoint never yields and cannot be passed to `from_checkpoint`; a resume skips it when it comes before the resume point (on the first pass of a loop), and a yield skips it when it comes after the yielding checkpoint. On the CUDA graph path it costs one gate kernel and one conditional node.
+- A bare statement without global side effect (for example `n = arr.shape[0] // 2`) always runs, so a value it computes for later work is never skipped.
+
+```python
+@qd.func(requires_top_level=True)
+def prepare(arr: qd.types.ndarray()):
+    for i in range(arr.shape[0]):
+        arr[i] = 0.0
+
+@qd.kernel(graph=True, checkpoints=True)
+def step(arr: qd.types.ndarray(qd.f32, ndim=1), overflow: qd.types.ndarray(qd.i32, ndim=0)):
+    prepare(arr)                                  # implicit checkpoint: skipped when resuming at Stage.SIM
+    with qd.checkpoint(Stage.SIM, yield_on=overflow):
+        assemble(arr, overflow)                   # a @qd.func: part of Stage.SIM
+    solve(arr)                                    # implicit checkpoint: skipped when Stage.SIM yields
+```
+
+Code that needs to know whether its Quadrants build behaves this way can test `qd.CHECKPOINT_TASK_REGIONS` (`True` on builds that do; builds that do not lack the name, so read it with `getattr(qd, "CHECKPOINT_TASK_REGIONS", False)`). Earlier builds gave no checkpoint to tasks outside explicit checkpoints other than `for`-loops written in the kernel, so such tasks ran again on every resume and after a yield.
+
 ### Restrictions
 
 - Must be used inside `@qd.kernel(graph=True, checkpoints=True)`. Without the flag, `qd.checkpoint(...)` raises `QuadrantsSyntaxError` at compile time.
@@ -281,17 +305,6 @@ Inside `qd.graph.do_while`, the selected resume point applies only to the first 
 - Checkpoints cannot be nested inside other checkpoints.
 - Checkpoints inside a `qd.graph.do_while` body work on every supported backend.
 - A `qd.graph.do_while` loop inside a checkpoint body requires enabled CUDA Graph execution on compute capability 9.0 or newer.
-- The body of a `with qd.checkpoint(...)` block cannot contain bare top-level statements (assignments, augmented assignments, or bare call/expression statements). Every top-level statement must be inside a `for`-loop (or other control-flow construct). A docstring as the first statement is allowed. Bare statements raise `QuadrantsSyntaxError` at compile time.
-
-  ```python
-  with qd.checkpoint(0, yield_on=flag):
-      for _ in range(1):
-          c[()] = c[()] + 1
-      for i in range(arr.shape[0]):
-          arr[i] = arr[i] + 1
-  ```
-
-The restriction is by design: each top-level statement inside a checkpoint becomes its own GPU task / graph node, so silently wrapping bare statements would hide a sequence of N field writes ballooning into N kernel launches.
 
 ## `qd.graph.parallel` sections with `qd.graph.parallel_context` *(experimental)*
 
@@ -317,7 +330,7 @@ def step(...):
         precondition(...)
 ```
 
-In a `checkpoints=True` kernel, put the complete region inside one explicit checkpoint. The fork/join then belongs to that checkpoint: all sections finish before its yield check, and resume skips or replays the complete region.
+In a `checkpoints=True` kernel, a region inside an explicit checkpoint belongs to that checkpoint: all sections finish before its yield check, and resume skips or replays the complete region.
 
 ```python
 @qd.kernel(graph=True, checkpoints=True)
@@ -362,7 +375,7 @@ The loop **must** be a `qd.static(...)` loop (its trip count is known at compile
 - `qd.graph.parallel_context` may contain only `with qd.graph.parallel():` blocks, optionally wrapped in `if qd.static(...)` (so an optional `qd.graph.parallel` section can be compiled in or out - e.g. enabling edge-edge contacts only when a feature flag is set) or `for ... in qd.static(...)` loops (generate one `qd.graph.parallel` section per element of a compile-time sequence).
 - `qd.graph.parallel()` may appear only directly inside a `qd.graph.parallel_context()`.
 - `qd.graph.parallel_context` cannot be nested, and a `qd.graph.parallel` section body must be straight-line task work - no `qd.graph.do_while`, `qd.checkpoint`, or nested `qd.graph.parallel_context` inside a `qd.graph.parallel` section (a `qd.graph.parallel_context` may, however, sit inside a `qd.graph.do_while` body, as shown above).
-- In a `@qd.kernel(graph=True, checkpoints=True)` kernel, every `qd.graph.parallel_context` must be lexically inside an explicit `qd.checkpoint`. A bare region is rejected because its tasks would otherwise belong to the unconditional prologue and violate resume ordering.
+- In a `@qd.kernel(graph=True, checkpoints=True)` kernel, a `qd.graph.parallel_context` outside explicit checkpoints belongs to the implicit checkpoint of the run it is in (see [What belongs to a checkpoint](#what-belongs-to-a-checkpoint)), so resume skips or replays the complete region with that run.
 
 ### Backend behavior
 

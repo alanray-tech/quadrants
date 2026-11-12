@@ -59,6 +59,7 @@ user_api[qd] = [
     "Backend",
     "BitpackedFields",
     "BufferView",
+    "CHECKPOINT_TASK_REGIONS",
     "CPUWorkScheduling",
     "CRITICAL",
     "DEBUG",

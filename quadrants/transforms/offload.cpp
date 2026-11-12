@@ -327,6 +327,13 @@ class Offloader {
           serial_stmt->region_tag.stream_parallel_group_id != bucket_tag.stream_parallel_group_id) {
         assemble_serial_statements();
       }
+      // A PURE stmt written in another checkpoint than the buffered side effects closes the bucket first: computed in
+      // their task, it would reach a later checkpoint's bare store through a global temporary, and a resume that skips
+      // their task would hand that store the value of an earlier launch.
+      if (!serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set && bucket_has_side_effect &&
+          serial_stmt->region_tag.checkpoint_id != bucket_tag.checkpoint_id) {
+        assemble_serial_statements();
+      }
       if (serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set) {
         if (bucket_has_side_effect && serial_stmt->region_tag != bucket_tag) {
           assemble_serial_statements();

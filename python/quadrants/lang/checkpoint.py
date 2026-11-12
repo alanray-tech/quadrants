@@ -11,6 +11,15 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
+CHECKPOINT_TASK_REGIONS = True
+"""``True`` when checkpoints cover every task of a ``checkpoints=True`` kernel, whatever its source.
+
+Inlined ``@qd.func`` bodies, static ``if`` bodies and bare statements outside explicit checkpoints fall in implicit
+checkpoints (one per maximal run up to an explicit checkpoint or a ``qd.graph.do_while`` boundary), so a resume skips
+them and a yield stops them exactly like loops written in the kernel; inside an explicit checkpoint they carry its id.
+Builds without this behaviour do not define the name: test it with ``getattr(qd, "CHECKPOINT_TASK_REGIONS", False)``.
+"""
+
 
 @contextmanager
 def checkpoint(cp_id, yield_on):
@@ -47,8 +56,10 @@ def checkpoint(cp_id, yield_on):
       - A checkpoint body containing ``qd.graph.do_while`` requires enabled CUDA Graph execution on compute capability
         9.0 or newer.
       - Cannot be combined with ``qd.stream_parallel()`` in the same kernel.
-      - The body cannot contain bare top-level statements (assignments, expressions); wrap them in
-        ``for _ in range(1):`` so the lowering surfaces the per-statement task cost.
+
+    Every task the body lowers to belongs to the checkpoint: its loops, the loops of the ``@qd.func`` it calls and its
+    bare statements (a bare statement without global side effect stays always-run, so the values it computes for later
+    tasks are never skipped). Outside explicit checkpoints, see ``CHECKPOINT_TASK_REGIONS``.
 
     This function should not be called directly at runtime; it is recognised and transformed during AST compilation. At
     Python runtime (outside kernels), this is a no-op context manager so that doctests / type-checking can import the

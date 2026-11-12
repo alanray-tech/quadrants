@@ -586,20 +586,24 @@ class FunctionDefTransformer:
                 kernel.checkpoint_yield_on_args = []
                 kernel.checkpoint_yield_on_cpp_arg_ids = []
                 kernel.checkpoint_user_labels_by_cp_id = []
-                # Auto-wrap pass for `@qd.kernel(graph=True, checkpoints=True)` kernels. Mutates `node.body` in place so
-                # every top-level for-loop (and every for-loop inside a `qd.graph_do_while` body) that the user did not
-                # already wrap in a `with qd.checkpoint(...)` gets wrapped in a synthetic implicit no-yield checkpoint.
-                # Implicit checkpoints share the same dense source-order internal cp_id space as explicit ones, but
-                # carry `None` in `checkpoint_user_labels_by_cp_id` so they never appear in `GraphStatus.checkpoint` /
-                # `kernel.resume(from_checkpoint=...)`. Runs here (after coverage instrumentation has already injected
-                # its top-level `_qd_cov[i] = 1` probes, which are bare assigns that the wrap pass intentionally leaves
-                # alone) so that the regular `build_stmts` walk below sees a uniform stream of `with qd.checkpoint(...)`
-                # blocks and bare prologue stmts.
+                # In a `@qd.kernel(graph=True, checkpoints=True)` kernel, every maximal run of the body's statements
+                # outside explicit checkpoints, up to a checkpoint or a graph do-while boundary, becomes one implicit
+                # no-yield checkpoint, whatever its statements are (loops, inlined funcs, static ifs, bare statements).
+                # The ASTBuilder opens them as statements reach the kernel's root block (see
+                # `ASTBuilder::open_implicit_checkpoint_if_needed`). They share the dense source-order internal cp_id
+                # space of explicit ones but carry `None` in `checkpoint_user_labels_by_cp_id`, so they never appear in
+                # `GraphStatus.checkpoint` / `kernel.resume(from_checkpoint=...)`.
                 if kernel.use_checkpoints:
-                    node.body = CheckpointTransformer.auto_wrap_for_loops(node.body)
+                    ctx.ast_builder.enable_implicit_checkpoints()
 
         with ctx.variable_scope_guard():
             build_stmts(ctx, node.body)
+
+        if ctx.is_kernel:
+            kernel = ctx.global_context.current_kernel
+            if kernel is not None and kernel.use_checkpoints:
+                ctx.ast_builder.end_implicit_checkpoint()
+                CheckpointTransformer.add_implicit_checkpoints(kernel, ctx.ast_builder.num_checkpoints())
 
         return None
 

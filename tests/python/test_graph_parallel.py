@@ -913,21 +913,41 @@ def test_graph_parallel_section_checkpoint_raises():
 
 
 @test_utils.test()
-def test_graph_parallel_context_outside_checkpoint_raises():
-    """In a checkpoints=True kernel a fork/join region must belong to an explicit checkpoint. Auto-wrap deliberately
-    does not recurse into the region, so accepting a bare region would put its tasks in the unconditional prologue and
-    make them run even when resume skips their source position."""
+def test_graph_parallel_context_outside_checkpoint_joins_implicit_checkpoint():
+    """In a checkpoints=True kernel a fork/join region outside explicit checkpoints belongs to the implicit checkpoint
+    of its run: both sections run on a plain launch, and a resume from a later checkpoint skips the whole region."""
 
     @qd.kernel(graph=True, checkpoints=True)
-    def k(x: qd.types.ndarray(qd.i32, ndim=1)):
+    def k(
+        x: qd.types.ndarray(qd.i32, ndim=1),
+        y: qd.types.ndarray(qd.i32, ndim=1),
+        flag: qd.types.ndarray(qd.i32, ndim=0),
+    ):
         with qd.graph.parallel_context():
             with qd.graph.parallel():
                 for i in range(x.shape[0]):
                     x[i] = x[i] + 1
+            with qd.graph.parallel():
+                for i in range(y.shape[0]):
+                    y[i] = y[i] + 2
+        with qd.checkpoint(0, yield_on=flag):
+            for i in range(x.shape[0]):
+                x[i] = x[i] + 10
 
     x = qd.ndarray(qd.i32, shape=(16,))
-    with pytest.raises(qd.QuadrantsSyntaxError, match="must be inside an explicit qd.checkpoint"):
-        k(x)
+    y = qd.ndarray(qd.i32, shape=(16,))
+    flag = qd.ndarray(qd.i32, shape=())
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    for resume in (False, True):
+        x.from_numpy(np.zeros(16, dtype=np.int32))
+        y.from_numpy(np.zeros(16, dtype=np.int32))
+        if resume:
+            k.resume(x, y, flag, from_checkpoint=0)
+        else:
+            k(x, y, flag)
+        np.testing.assert_array_equal(x.to_numpy(), np.full(16, 10 if resume else 11, dtype=np.int32))
+        np.testing.assert_array_equal(y.to_numpy(), np.full(16, 0 if resume else 2, dtype=np.int32))
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None, 0]
 
 
 @test_utils.test()

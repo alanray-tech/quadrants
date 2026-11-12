@@ -440,7 +440,10 @@ void export_lang(nb::module_ &m) {
       .def("set_graph_do_while_level_id", &ASTBuilder::set_graph_do_while_level_id)
       .def("current_checkpoint_id", &ASTBuilder::current_checkpoint_id)
       .def("begin_checkpoint", &ASTBuilder::begin_checkpoint)
-      .def("end_checkpoint", &ASTBuilder::end_checkpoint);
+      .def("end_checkpoint", &ASTBuilder::end_checkpoint)
+      .def("enable_implicit_checkpoints", &ASTBuilder::enable_implicit_checkpoints)
+      .def("end_implicit_checkpoint", &ASTBuilder::end_implicit_checkpoint)
+      .def("num_checkpoints", &ASTBuilder::num_checkpoints);
 
   auto device_capability_config = nb::class_<DeviceCapabilityConfig>(m, "DeviceCapabilityConfig")
                                       .def("get", &DeviceCapabilityConfig::get)

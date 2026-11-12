@@ -966,6 +966,22 @@ class ASTBuilder {
   // `end_checkpoint()`. Read at each `begin_frontend_*_for` call to tag the emitted for-loop with the enclosing
   // checkpoint's cp_id (or -1 when outside any checkpoint).
   int current_checkpoint_id_{-1};
+  // `checkpoints=True` kernels: everything inserted into the kernel's root block outside an explicit checkpoint belongs
+  // to an implicit one (see `open_implicit_checkpoint_if_needed`). `implicit_checkpoint_open_` tells whether
+  // `current_checkpoint_id_` is such an implicit checkpoint.
+  bool implicit_checkpoints_{false};
+  bool implicit_checkpoint_open_{false};
+
+  // Graph do-while bodies, static-if bodies and `requires_top_level` func bodies all insert into the root block, so
+  // each maximal run of root statements (loops, inlined funcs, bare statements) up to an explicit checkpoint or a graph
+  // do-while boundary becomes one implicit checkpoint, whatever its source. It never yields and is never a resume
+  // target, so its tasks are skipped or run together and cost one gate.
+  void open_implicit_checkpoint_if_needed() {
+    if (implicit_checkpoints_ && current_checkpoint_id_ == -1 && stack_.size() == 1) {
+      current_checkpoint_id_ = checkpoint_counter_++;
+      implicit_checkpoint_open_ = true;
+    }
+  }
 
  public:
   ASTBuilder(Block *initial, Arch arch, bool is_kernel) : is_kernel_(is_kernel), arch_(arch) {
@@ -1138,9 +1154,30 @@ class ASTBuilder {
   // `FrontendForStmt::checkpoint_id`. Nested checkpoints are forbidden -- the Python AST transformer raises on
   // detection, but we re-check here so any future direct C++ caller cannot bypass it.
   int begin_checkpoint() {
+    end_implicit_checkpoint();
     QD_ERROR_IF(current_checkpoint_id_ != -1, "Nested qd.checkpoint() blocks are not supported");
     current_checkpoint_id_ = checkpoint_counter_++;
     return current_checkpoint_id_;
+  }
+
+  // Put the statements inserted into the kernel's root block outside explicit checkpoints into implicit checkpoints
+  // from now on. Called once by the AST transformer before walking the body of a `checkpoints=True` kernel.
+  void enable_implicit_checkpoints() {
+    implicit_checkpoints_ = true;
+  }
+
+  // Close the implicit checkpoint open at the root, if any; the next root statement opens a new one. Called at graph
+  // do-while boundaries and at the end of the kernel body.
+  void end_implicit_checkpoint() {
+    if (implicit_checkpoint_open_) {
+      current_checkpoint_id_ = -1;
+      implicit_checkpoint_open_ = false;
+    }
+  }
+
+  // Explicit and implicit checkpoints handed out so far (their ids are 0 .. count - 1).
+  int num_checkpoints() const {
+    return checkpoint_counter_;
   }
 
   // Close the current checkpoint scope opened by `begin_checkpoint()`. Subsequent for-loops emit with `checkpoint_id =

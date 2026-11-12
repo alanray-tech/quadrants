@@ -1278,6 +1278,7 @@ void ASTBuilder::insert(std::unique_ptr<Stmt> &&stmt, int location) {
   // statements (assignments, inlined @qd.func bodies, directives) a correct region too. Statements inside a real
   // for-loop body are also stamped, but harmlessly: they live inside the for-loop's task body and never reach the
   // offloader's root-level pending-serial bucket.
+  open_implicit_checkpoint_if_needed();
   stmt->region_tag = {current_graph_do_while_level_id_, current_stream_parallel_group_id_, current_checkpoint_id_};
   // Also stamp the enclosing `qd.graph_parallel_context()` region id. For-loops get this from ForLoopConfig, but a bare
   // side-effecting store written directly in a `qd.graph_parallel()` section has no ForLoopConfig -- without this stamp
@@ -1518,6 +1519,7 @@ void ASTBuilder::begin_frontend_range_for(const Expr &i, const Expr &s, const Ex
   for_loop_dec_.config.stream_parallel_group_id = current_stream_parallel_group_id_;
   for_loop_dec_.config.graph_parallel_region_id = current_graph_parallel_region_id_;
   for_loop_dec_.config.graph_do_while_level_id = current_graph_do_while_level_id_;
+  open_implicit_checkpoint_if_needed();
   for_loop_dec_.config.checkpoint_id = current_checkpoint_id_;
   auto stmt_unique = std::make_unique<FrontendForStmt>(i, s, e, arch_, for_loop_dec_.config, dbg_info);
   auto stmt = stmt_unique.get();
@@ -1536,6 +1538,7 @@ void ASTBuilder::begin_frontend_struct_for_on_snode(const ExprGroup &loop_vars,
   for_loop_dec_.config.stream_parallel_group_id = current_stream_parallel_group_id_;
   for_loop_dec_.config.graph_parallel_region_id = current_graph_parallel_region_id_;
   for_loop_dec_.config.graph_do_while_level_id = current_graph_do_while_level_id_;
+  open_implicit_checkpoint_if_needed();
   for_loop_dec_.config.checkpoint_id = current_checkpoint_id_;
   auto stmt_unique = std::make_unique<FrontendForStmt>(loop_vars, snode, arch_, for_loop_dec_.config, dbg_info);
   for_loop_dec_.reset();
@@ -1554,6 +1557,7 @@ void ASTBuilder::begin_frontend_struct_for_on_external_tensor(const ExprGroup &l
   for_loop_dec_.config.stream_parallel_group_id = current_stream_parallel_group_id_;
   for_loop_dec_.config.graph_parallel_region_id = current_graph_parallel_region_id_;
   for_loop_dec_.config.graph_do_while_level_id = current_graph_do_while_level_id_;
+  open_implicit_checkpoint_if_needed();
   for_loop_dec_.config.checkpoint_id = current_checkpoint_id_;
   auto stmt_unique =
       std::make_unique<FrontendForStmt>(loop_vars, external_tensor, arch_, for_loop_dec_.config, dbg_info);
@@ -1574,6 +1578,7 @@ void ASTBuilder::begin_frontend_mesh_for(const Expr &i,
   for_loop_dec_.config.stream_parallel_group_id = current_stream_parallel_group_id_;
   for_loop_dec_.config.graph_parallel_region_id = current_graph_parallel_region_id_;
   for_loop_dec_.config.graph_do_while_level_id = current_graph_do_while_level_id_;
+  open_implicit_checkpoint_if_needed();
   for_loop_dec_.config.checkpoint_id = current_checkpoint_id_;
   auto stmt_unique =
       std::make_unique<FrontendForStmt>(ExprGroup(i), mesh_ptr, element_type, arch_, for_loop_dec_.config, dbg_info);
