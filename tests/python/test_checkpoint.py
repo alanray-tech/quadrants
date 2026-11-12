@@ -5,12 +5,12 @@ These tests cover the auto-checkpoint surface:
   - The user-facing API is ``qd.checkpoint(cp_id, yield_on=flag)``. Both arguments are required; ``cp_id`` is a user
     label (``int`` or ``IntEnum`` value), and ``yield_on`` is a 0-d ``qd.i32`` ndarray kernel parameter.
   - The kernel must be decorated with ``@qd.kernel(graph=True, checkpoints=True)`` to use ``qd.checkpoint(...)``. The
-    flag opts the kernel into the resume model and enables the auto-wrap pass.
-  - Auto-wrap: every run of consecutive top-level for-loops in the kernel body (including inside
-    ``while qd.graph.do_while(...):``) that is not inside a ``with qd.checkpoint(...)`` becomes one implicit no-yield
-    checkpoint. Implicit checkpoints carry no user label and never appear in ``GraphStatus.checkpoint``, but they DO
-    consume an internal cp_id slot so a resume launch can skip them along with the explicit checkpoints declared earlier
-    in source order.
+    flag opts the kernel into the resume model and enables implicit checkpoints.
+  - Implicit checkpoints: every maximal run of the kernel's top-level work outside ``with qd.checkpoint(...)`` (loops,
+    inlined func bodies, static-if bodies, bare statements), up to an explicit checkpoint or a ``qd.graph.do_while``
+    boundary, becomes one implicit no-yield checkpoint. Implicit checkpoints carry no user label and never appear in
+    ``GraphStatus.checkpoint``, but they DO consume an internal cp_id slot so a resume launch can skip them along with
+    the explicit checkpoints declared earlier in source order.
   - ``status.checkpoint`` round-trips the user-supplied label (so ``qd.checkpoint(Stage.SIM, ...)`` surfaces as
     ``Stage.SIM`` on yield). ``kernel.resume(from_checkpoint=Stage.SIM)`` skips every checkpoint (implicit + explicit)
     declared before ``Stage.SIM`` in source order.
@@ -313,9 +313,9 @@ def test_autowrap_groups_consecutive_for_loops():
 
 
 @test_utils.test()
-def test_autowrap_run_ends_at_bare_statement():
-    """A bare top-level statement stays in the kernel prologue and ends the run of for-loops before it: the loops on
-    either side get separate implicit checkpoints."""
+def test_implicit_run_spans_bare_statement():
+    """A bare top-level statement joins the run of the loops around it: the loops on either side and the statement share
+    one implicit checkpoint."""
     N = 4
 
     @qd.kernel(graph=True, checkpoints=True)
@@ -344,7 +344,7 @@ def test_autowrap_run_ends_at_bare_statement():
     k(x, n_local, flag)
     np.testing.assert_array_equal(x.to_numpy(), np.full(N, 13, dtype=np.int32))
     assert int(n_local.to_numpy()) == N
-    assert k._primal.checkpoint_user_labels_by_cp_id == [None, None, 7]
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None, 7]
 
 
 @test_utils.test()
@@ -431,10 +431,9 @@ def test_autowrap_recurses_into_graph_do_while_body():
 
 
 @test_utils.test()
-def test_autowrap_leaves_kernel_prologue_alone():
-    """Bare top-level statements (not inside any for-loop) stay in the kernel prologue with cp_id=-1 and run on every
-    launch -- including resume launches. Verified indirectly by the fact that the autowrap pass produces only one
-    implicit checkpoint here (for the one for-loop), not extra slots for the bare prologue stmt."""
+def test_implicit_checkpoint_covers_bare_prologue_statement():
+    """A bare top-level statement before the first loop opens the implicit checkpoint that the loop then joins: one
+    implicit checkpoint, no separate slot for the statement."""
     N = 4
 
     @qd.kernel(graph=True, checkpoints=True)
@@ -450,46 +449,71 @@ def test_autowrap_leaves_kernel_prologue_alone():
     k(x, n_local)
     np.testing.assert_array_equal(x.to_numpy(), np.full(N, 1, dtype=np.int32))
     assert int(n_local.to_numpy()) == N
-    # One implicit cp_id for the for-loop. The bare assign is kernel prologue, cp_id=-1, not in the table.
     assert k._primal.checkpoint_user_labels_by_cp_id == [None]
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# Bare-stmt-inside-checkpoint rule still applies to explicit blocks.
+# Bare statements and func calls in an explicit checkpoint body belong to the checkpoint.
 # ----------------------------------------------------------------------------------------------------------------------
 
 
 @test_utils.test()
-def test_checkpoint_bare_assign_raises():
-    """A bare ``Assign`` at the top level of an explicit ``with qd.checkpoint(...)`` body must raise
-    ``QuadrantsSyntaxError`` at compile time, not be silently wrapped. The user should be steered to ``for _ in
-    range(1): <stmt>`` explicitly so they see each top-level statement becomes its own offloaded task."""
+def test_checkpoint_bare_store_belongs_to_checkpoint():
+    """A bare store at the top level of a checkpoint body belongs to the checkpoint: a resume past the checkpoint skips
+    it, and a yield of an earlier checkpoint stops it."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
 
     @qd.kernel(graph=True, checkpoints=True)
-    def k(c: qd.types.ndarray(qd.i32, ndim=0), flag: qd.types.ndarray(qd.i32, ndim=0)):
-        with qd.checkpoint(0, yield_on=flag):
-            c[()] = c[()] + 1
+    def k(
+        c: qd.types.ndarray(qd.i32, ndim=1),
+        first: qd.types.ndarray(qd.i32, ndim=0),
+        second: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        with qd.checkpoint(0, yield_on=first):
+            c[0] = c[0] + 1
+        with qd.checkpoint(1, yield_on=second):
+            c[1] = c[1] + 1
 
-    c = qd.ndarray(qd.i32, shape=())
-    flag = qd.ndarray(qd.i32, shape=())
-    with pytest.raises(qd.QuadrantsSyntaxError, match=r"bare top-level Assign statement"):
-        k(c, flag)
+    c = qd.ndarray(qd.i32, shape=(2,))
+    first = qd.ndarray(qd.i32, shape=())
+    second = qd.ndarray(qd.i32, shape=())
+    second.from_numpy(np.array(0, dtype=np.int32))
+
+    for first_flag, resume_from, expected in ((0, None, [1, 1]), (1, None, [1, 0]), (0, 1, [0, 1])):
+        c.from_numpy(np.zeros(2, dtype=np.int32))
+        first.from_numpy(np.array(first_flag, dtype=np.int32))
+        status = k(c, first, second) if resume_from is None else k.resume(c, first, second, from_checkpoint=resume_from)
+        assert status.yielded == bool(first_flag)
+        np.testing.assert_array_equal(c.to_numpy(), np.array(expected, dtype=np.int32))
+
+
+@qd.func(requires_top_level=True)
+def _func_bump(i: qd.template(), c: qd.types.ndarray()):
+    for _ in range(1):
+        c[i] = c[i] + 1
 
 
 @test_utils.test()
-def test_checkpoint_bare_assign_error_message_suggests_for_wrap():
-    """The rejection message must show the user the exact ``for _ in range(1):`` rewrite. Pin a representative subset
-    of the message so a future copy-edit can't silently drop the actionable fix-it hint."""
+def test_checkpoint_body_may_be_a_bare_func_call():
+    """A checkpoint body may be a bare ``@qd.func`` call, without ``if qd.static(True):`` around it: the func's tasks
+    belong to the checkpoint."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
 
     @qd.kernel(graph=True, checkpoints=True)
-    def k(c: qd.types.ndarray(qd.i32, ndim=0), flag: qd.types.ndarray(qd.i32, ndim=0)):
+    def k(c: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
         with qd.checkpoint(0, yield_on=flag):
-            c[()] = c[()] + 1
+            _func_bump(0, c)
+        with qd.checkpoint(1, yield_on=flag):
+            _func_bump(1, c)
 
-    c = qd.ndarray(qd.i32, shape=())
+    c = qd.ndarray(qd.i32, shape=(2,))
     flag = qd.ndarray(qd.i32, shape=())
-    with pytest.raises(qd.QuadrantsSyntaxError, match=r"for _ in range\(1\):"):
-        k(c, flag)
+    c.from_numpy(np.zeros(2, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    k.resume(c, flag, from_checkpoint=1)
+    np.testing.assert_array_equal(c.to_numpy(), np.array([0, 1], dtype=np.int32))
 
 
 @test_utils.test()
@@ -757,6 +781,189 @@ def test_grouped_implicit_loops_keep_resume_and_yield_semantics():
     assert status.yielded
     assert status.checkpoint == 42
     np.testing.assert_array_equal(x.to_numpy(), np.full(N, 13, dtype=np.int32))
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Sections written as funcs keep the resume and yield semantics of sections written as loops.
+#
+# The reference loop: a prologue, then 6 passes of a do-while holding a section before a checkpoint, the checkpoint body
+# (yielding once, on pass 3) and a section after it. A yield stops the pass after the body; the resume skips what comes
+# before the checkpoint on its first pass. Counts [prologue, before, body, after]: [1, 4, 4, 3] at the yield, [1, 6, 7,
+# 6] at the end, whichever sections are written as `@qd.func` calls.
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+@qd.func(requires_top_level=True)
+def _func_count(i: qd.template(), counts: qd.types.ndarray()):
+    for _ in range(1):
+        counts[i] = counts[i] + 1
+
+
+@qd.func(requires_top_level=True)
+def _func_body(
+    counts: qd.types.ndarray(),
+    passes: qd.types.ndarray(),
+    overflow: qd.types.ndarray(),
+    yield_at: qd.types.ndarray(),
+):
+    for _ in range(1):
+        counts[2] = counts[2] + 1
+    for _ in range(1):
+        if passes[()] == yield_at[()]:
+            overflow[()] = 1
+
+
+@qd.func(requires_top_level=True)
+def _func_after(counts: qd.types.ndarray(), passes: qd.types.ndarray(), flag: qd.types.ndarray()):
+    for _ in range(1):
+        counts[3] = counts[3] + 1
+        passes[()] = passes[()] + 1
+        flag[()] = qd.i32(passes[()] < 6)
+
+
+@qd.kernel(graph=True, checkpoints=True)
+def _kernel_sections(
+    counts: qd.types.ndarray(qd.i32, ndim=1),
+    flag: qd.types.ndarray(qd.i32, ndim=0),
+    passes: qd.types.ndarray(qd.i32, ndim=0),
+    overflow: qd.types.ndarray(qd.i32, ndim=0),
+    yield_at: qd.types.ndarray(qd.i32, ndim=0),
+    funcs: qd.template(),
+):
+    if qd.static("prologue" in funcs):
+        _func_count(0, counts)
+    else:
+        for _ in range(1):
+            counts[0] = counts[0] + 1
+    for _ in range(1):
+        passes[()] = 0
+        flag[()] = 1
+    while qd.graph.do_while(flag):
+        if qd.static("before" in funcs):
+            _func_count(1, counts)
+        else:
+            for _ in range(1):
+                counts[1] = counts[1] + 1
+        with qd.checkpoint(0, yield_on=overflow):
+            if qd.static("body" in funcs):
+                _func_body(counts, passes, overflow, yield_at)
+            else:
+                for _ in range(1):
+                    counts[2] = counts[2] + 1
+                    if passes[()] == yield_at[()]:
+                        overflow[()] = 1
+        if qd.static("after" in funcs):
+            _func_after(counts, passes, flag)
+        else:
+            for _ in range(1):
+                counts[3] = counts[3] + 1
+                passes[()] = passes[()] + 1
+                flag[()] = qd.i32(passes[()] < 6)
+
+
+def _run_sections(funcs):
+    """Launch `_kernel_sections` yielding on pass 3, resume it, and return the counts at the yield and at the end."""
+    counts = qd.ndarray(qd.i32, shape=(4,))
+    flag = qd.ndarray(qd.i32, shape=())
+    passes = qd.ndarray(qd.i32, shape=())
+    overflow = qd.ndarray(qd.i32, shape=())
+    yield_at = qd.ndarray(qd.i32, shape=())
+    counts.from_numpy(np.zeros(4, dtype=np.int32))
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(3, dtype=np.int32))
+    status = _kernel_sections(counts, flag, passes, overflow, yield_at, funcs)
+    assert status.yielded and status.checkpoint == 0
+    at_yield = counts.to_numpy().tolist()
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(-1, dtype=np.int32))
+    status = _kernel_sections.resume(counts, flag, passes, overflow, yield_at, funcs, from_checkpoint=0)
+    assert not status.yielded
+    return at_yield, counts.to_numpy().tolist()
+
+
+@pytest.mark.parametrize(
+    "funcs",
+    [(), ("prologue",), ("before",), ("body",), ("after",), ("prologue", "before", "body", "after")],
+)
+@test_utils.test()
+def test_sections_as_funcs_keep_resume_and_yield_semantics(funcs):
+    if not _supports_checkpoint_yield_resume_in_while_loop():
+        pytest.skip("requires yield/resume support inside qd.graph.do_while")
+    at_yield, final = _run_sections(funcs)
+    assert at_yield == [1, 4, 4, 3]
+    assert final == [1, 6, 7, 6]
+
+
+@test_utils.test()
+def test_sections_as_funcs_build_the_graph_of_sections_as_loops():
+    """Writing every section as a func call builds the same graph as writing it as loops: one IF node per checkpoint
+    (the prologue, the section before, the explicit checkpoint, the section after) and the same node count."""
+    if not _is_checkpoint_if_path_native():
+        pytest.skip("graph introspection counters exist on the native CUDA graph path only")
+    _run_sections(())
+    num_nodes_loops = impl.get_runtime().prog.get_graph_num_nodes_on_last_call()
+    assert _num_checkpoints_on_last_call() == 4
+    _run_sections(("prologue", "before", "body", "after"))
+    assert _num_checkpoints_on_last_call() == 4
+    assert impl.get_runtime().prog.get_graph_num_nodes_on_last_call() == num_nodes_loops
+
+
+@test_utils.test()
+def test_yield_skips_following_top_level_func():
+    """Regression test for quadrants#956: a top-level func call after a yielding checkpoint does not run in the launch
+    that yields."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(c: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
+        with qd.checkpoint(0, yield_on=flag):
+            for _ in range(1):
+                c[0] = c[0] + 1
+                flag[()] = 1
+        _func_bump(1, c)
+
+    c = qd.ndarray(qd.i32, shape=(2,))
+    flag = qd.ndarray(qd.i32, shape=())
+    c.from_numpy(np.zeros(2, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    status = k(c, flag)
+    assert status.yielded and status.checkpoint == 0
+    np.testing.assert_array_equal(c.to_numpy(), np.array([1, 0], dtype=np.int32))
+
+
+@test_utils.test()
+def test_static_if_and_bare_statements_join_the_implicit_run():
+    """A top-level static `if` body and bare stores outside explicit checkpoints join the implicit checkpoint of the run
+    they are in: a resume past it skips all of them."""
+    if not _supports_checkpoint_yield_resume():
+        pytest.skip("requires yield/resume support")
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(c: qd.types.ndarray(qd.i32, ndim=1), flag: qd.types.ndarray(qd.i32, ndim=0)):
+        c[0] = c[0] + 1
+        if qd.static(True):
+            for _ in range(1):
+                c[1] = c[1] + 1
+        _func_bump(2, c)
+        with qd.checkpoint(0, yield_on=flag):
+            for _ in range(1):
+                c[3] = c[3] + 1
+
+    c = qd.ndarray(qd.i32, shape=(4,))
+    flag = qd.ndarray(qd.i32, shape=())
+    c.from_numpy(np.zeros(4, dtype=np.int32))
+    flag.from_numpy(np.array(0, dtype=np.int32))
+    k(c, flag)
+    np.testing.assert_array_equal(c.to_numpy(), np.array([1, 1, 1, 1], dtype=np.int32))
+    assert k._primal.checkpoint_user_labels_by_cp_id == [None, 0]
+    k.resume(c, flag, from_checkpoint=0)
+    np.testing.assert_array_equal(c.to_numpy(), np.array([1, 1, 1, 2], dtype=np.int32))
+
+
+@test_utils.test()
+def test_capability_flag():
+    assert qd.CHECKPOINT_TASK_REGIONS is True
 
 
 @test_utils.test()

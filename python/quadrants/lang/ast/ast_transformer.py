@@ -1523,6 +1523,8 @@ class ASTTransformer(Builder):
             # FunctionDefTransformer). Outer loops get lower ids than the inner loops they contain.
             parent_id = kernel._graph_do_while_level_stack[-1] if kernel._graph_do_while_level_stack else -1
             level_id = len(kernel.graph_do_while_levels)
+            # A graph do-while ends the implicit checkpoint before it, and its body opens its own.
+            ctx.ast_builder.end_implicit_checkpoint()
             kernel.graph_do_while_levels.append(
                 GraphDoWhileLevel(
                     cond_arg_name=cond_label,
@@ -1538,6 +1540,7 @@ class ASTTransformer(Builder):
             try:
                 build_stmts(ctx, node.body)
             finally:
+                ctx.ast_builder.end_implicit_checkpoint()
                 kernel._graph_do_while_level_stack.pop()
                 restore_id = kernel._graph_do_while_level_stack[-1] if kernel._graph_do_while_level_stack else -1
                 ctx.ast_builder.set_graph_do_while_level_id(restore_id)

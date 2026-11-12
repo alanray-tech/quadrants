@@ -239,6 +239,13 @@ class Offloader {
       // because no one touched it" -- see GraphRegionTag's comment in ir.h. A bare top-level stmt
       // legitimately has graph_do_while_level_id=-1 (matching the struct default), so checking
       // `region_tag != GraphRegionTag{}` would wrongly demote it to untrustworthy.
+      // A PURE stmt written in another checkpoint than the buffered side effects closes the bucket first: computed in
+      // their task, it would reach a later checkpoint's bare store through a global temporary, and a resume that skips
+      // their task would hand that store the value of an earlier launch.
+      if (!serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set && bucket_has_side_effect &&
+          serial_stmt->region_tag.checkpoint_id != bucket_tag.checkpoint_id) {
+        assemble_serial_statements();
+      }
       if (serial_stmt->has_global_side_effect() && serial_stmt->region_tag.is_set) {
         if (bucket_has_side_effect && serial_stmt->region_tag != bucket_tag) {
           assemble_serial_statements();

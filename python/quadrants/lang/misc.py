@@ -11,7 +11,7 @@ from quadrants._lib.core.quadrants_python import Extension
 from quadrants._lib.utils import get_os_name
 from quadrants.lang import impl, util
 from quadrants.lang._environment_configurator import _EnvironmentConfigurator
-from quadrants.lang.checkpoint import checkpoint
+from quadrants.lang.checkpoint import CHECKPOINT_TASK_REGIONS, checkpoint
 from quadrants.lang.expr import Expr
 from quadrants.lang.graph_parallel import graph_parallel, graph_parallel_context
 from quadrants.lang.graph_status import GraphStatus
@@ -879,6 +879,7 @@ __all__ = [
     "vulkan",
     "extension",
     "GraphStatus",
+    "CHECKPOINT_TASK_REGIONS",
     "checkpoint",
     "graph_do_while",
     "graph_parallel_context",
