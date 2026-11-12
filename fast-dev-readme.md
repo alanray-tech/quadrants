@@ -31,6 +31,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
 | `fix/cpp-tests-without-vulkan` | The C++ tests link the SPIR-V codegen themselves when Vulkan and Metal are off, so they build in a Vulkan-off build | Not submitted |
 | `perf/checkpoint-task-regions` | On top of `perf/compile-speed` and `perf/checkpoint-implicit-grouping`: every task of a `checkpoints=True` kernel belongs to a checkpoint (inlined funcs, static ifs and bare statements included), one implicit checkpoint per maximal run outside explicit ones; bare statements and func calls allowed in checkpoint bodies; `qd.CHECKPOINT_TASK_REGIONS` | Not submitted (fixes issue #956) |
+| `fix/checkpoint-resume-nested-loop` | On CPU and Vulkan/Metal, the work after a nested `qd.graph.do_while` that precedes the resumed checkpoint no longer runs again in the resumed pass | Not submitted |
 | `perf/cuda-range-rematerialize` | On top of `perf/compile-speed`: on CUDA, scalar range bounds computed in an earlier task, and the loop body's uses of such scalars, are recomputed in the worker instead of passed through a serial task; a bound that reads device memory the loop may write keeps the serial task | Not submitted (follows PR #1024) |
 
 ## Feature notes
@@ -191,6 +192,22 @@ named here are the ones on `dev-fast`.
   `test_checkpoint_bare_store_belongs_to_checkpoint`, `test_checkpoint_body_may_be_a_bare_func_call`,
   `test_capability_flag` in `tests/python/test_checkpoint.py`, and
   `test_graph_parallel_context_outside_checkpoint_joins_implicit_checkpoint` in `tests/python/test_graph_parallel.py`.
+
+### Resume past a nested loop (`fix/checkpoint-resume-nested-loop`)
+
+- `kernel.resume(from_checkpoint=cp)` skips the checkpoints before `cp` on the first pass of the loop that holds `cp`.
+  The CPU and GFX host drivers dropped the resume point at every loop level's condition check, also when the level
+  ended. A nested `qd.graph.do_while` before the resumed checkpoint has its body skipped in the resumed pass and its
+  flag already 0, so it ends after one pass: the resume point was dropped there and the work after the nested loop
+  ran again (in Genesis' one-kernel Newton solve, `func_start_line_search` after the PCG loop on a SEARCH resume).
+- Now CPU and GFX reset it only when a level runs another pass, as the CUDA cond-with-yield kernel and the AMDGPU
+  driver already did. Based on upstream `b2f658e58`; upstream main has the same code.
+- The IPC perf member's repro (outer do-while: a func with a task, a nested 3-pass do-while and a task; a checkpoint
+  yielding on pass 3 of 6; a func), counts [prologue, head, inner, tail, body, after], expected [1, 6, 18, 6, 7, 6]:
+  dev-fast `db6bdff96` gave tail 7 on CPU and was right on CUDA. The new test failed on CPU before the fix and passes
+  on CPU and CUDA after it, on the topic branch alone (172 checkpoint/graph tests) and on `dev-fast`.
+- Tests: `test_resume_skips_work_after_nested_loop_on_first_pass` in `tests/python/test_checkpoint.py` (GFX not run:
+  Vulkan is off in these builds).
 
 ### Scalar range bounds recomputed in the worker (`perf/cuda-range-rematerialize`)
 
