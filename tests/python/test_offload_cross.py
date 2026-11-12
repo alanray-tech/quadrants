@@ -3,7 +3,7 @@ import numpy as np
 import quadrants as qd
 from quadrants.lang import impl
 
-from tests import test_utils
+from tests.helpers import test_utils
 
 
 @test_utils.test()
@@ -17,11 +17,11 @@ def test_offload_with_cross_block_locals():
         s = 0
         for i in range(10):
             s += i
-        ret[None] = s
+        ret[()] = s
 
     ker()
 
-    assert ret[None] == 45
+    assert ret[()] == 45
 
 
 @test_utils.test()
@@ -35,14 +35,14 @@ def test_offload_with_cross_block_locals2():
         s = 0
         for i in range(10):
             s += i
-        ret[None] = s
-        s = ret[None] * 2
+        ret[()] = s
+        s = ret[()] * 2
         for i in range(10):
-            qd.atomic_add(ret[None], s)
+            qd.atomic_add(ret[()], s)
 
     ker()
 
-    assert ret[None] == 45 * 21
+    assert ret[()] == 45 * 21
 
 
 @test_utils.test()
@@ -55,11 +55,11 @@ def test_offload_with_cross_block_locals3():
         t = s
         for i in range(10):
             s += i
-        ret[None] = t
+        ret[()] = t
 
     ker()
 
-    assert ret[None] == 1
+    assert ret[()] == 1
 
 
 @test_utils.test()
@@ -72,11 +72,11 @@ def test_offload_with_cross_block_locals4():
         b = 0
         for i in range(10):
             b += a
-        ret[None] = b
+        ret[()] = b
 
     ker()
 
-    assert ret[None] == 10
+    assert ret[()] == 10
 
 
 @test_utils.test()
@@ -87,14 +87,14 @@ def test_offload_with_flexible_bounds():
 
     @qd.kernel
     def ker():
-        for i in range(lower[None], upper[None]):
-            s[None] += i
+        for i in range(lower[()], upper[()]):
+            s[()] += i
 
-    lower[None] = 10
-    upper[None] = 20
+    lower[()] = 10
+    upper[()] = 20
     ker()
 
-    assert s[None] == 29 * 10 // 2
+    assert s[()] == 29 * 10 // 2
 
 
 @test_utils.test(arch=qd.cuda, offline_cache=False)
@@ -138,14 +138,14 @@ def test_offload_with_cross_block_globals():
 
     @qd.kernel
     def ker():
-        ret[None] = 0
+        ret[()] = 0
         for i in range(10):
-            ret[None] += i
-        ret[None] += 1
+            ret[()] += i
+        ret[()] += 1
 
     ker()
 
-    assert ret[None] == 46
+    assert ret[()] == 46
 
 
 @test_utils.test(exclude=qd.amdgpu)
