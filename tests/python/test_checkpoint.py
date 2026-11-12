@@ -1251,6 +1251,67 @@ def test_checkpoint_fastcache_preserves_intenum_label_identity(tmp_path: pathlib
         assert proc.returncode == RET_SUCCESS
 
 
+@test_utils.test()
+def test_resume_skips_work_after_nested_loop_on_first_pass():
+    """In the resumed pass of an outer qd.graph.do_while, the work after a nested qd.graph.do_while that precedes the
+    resumed checkpoint is skipped like the work before it. The nested loop's body is skipped too and its flag is already
+    0, so it ends after one pass; that must not end the resume. Counts [prologue, head, inner, tail, body, after] after 6
+    outer passes, the checkpoint yielding once on pass 3: [1, 6, 18, 6, 7, 6]."""
+    if not _supports_checkpoint_yield_resume_in_while_loop():
+        pytest.skip("requires yield/resume support inside qd.graph.do_while")
+
+    @qd.kernel(graph=True, checkpoints=True)
+    def k(
+        counts: qd.types.ndarray(qd.i32, ndim=1),
+        flag: qd.types.ndarray(qd.i32, ndim=0),
+        inner: qd.types.ndarray(qd.i32, ndim=0),
+        passes: qd.types.ndarray(qd.i32, ndim=0),
+        overflow: qd.types.ndarray(qd.i32, ndim=0),
+        yield_at: qd.types.ndarray(qd.i32, ndim=0),
+    ):
+        for _ in range(1):
+            counts[0] = counts[0] + 1
+            passes[()] = 0
+            flag[()] = 1
+        while qd.graph.do_while(flag):
+            for _ in range(1):
+                counts[1] = counts[1] + 1
+                inner[()] = 3
+            while qd.graph.do_while(inner):
+                for _ in range(1):
+                    counts[2] = counts[2] + 1
+                    inner[()] = inner[()] - 1
+            for _ in range(1):
+                counts[3] = counts[3] + 1
+            with qd.checkpoint(0, yield_on=overflow):
+                for _ in range(1):
+                    counts[4] = counts[4] + 1
+                    if passes[()] == yield_at[()]:
+                        overflow[()] = 1
+            for _ in range(1):
+                counts[5] = counts[5] + 1
+                passes[()] = passes[()] + 1
+                flag[()] = qd.i32(passes[()] < 6)
+
+    counts = qd.ndarray(qd.i32, shape=(6,))
+    flag = qd.ndarray(qd.i32, shape=())
+    inner = qd.ndarray(qd.i32, shape=())
+    passes = qd.ndarray(qd.i32, shape=())
+    overflow = qd.ndarray(qd.i32, shape=())
+    yield_at = qd.ndarray(qd.i32, shape=())
+    counts.from_numpy(np.zeros(6, dtype=np.int32))
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(3, dtype=np.int32))
+    status = k(counts, flag, inner, passes, overflow, yield_at)
+    assert status.yielded and status.checkpoint == 0
+    np.testing.assert_array_equal(counts.to_numpy(), np.array([1, 4, 12, 4, 4, 3], dtype=np.int32))
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(-1, dtype=np.int32))
+    status = k.resume(counts, flag, inner, passes, overflow, yield_at, from_checkpoint=0)
+    assert not status.yielded
+    np.testing.assert_array_equal(counts.to_numpy(), np.array([1, 6, 18, 6, 7, 6], dtype=np.int32))
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # CUDA-native introspection (slice 1c).
 # ----------------------------------------------------------------------------------------------------------------------

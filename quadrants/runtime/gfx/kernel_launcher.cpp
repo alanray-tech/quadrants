@@ -76,8 +76,13 @@ void KernelLauncher::launch_offloaded_tasks_with_do_while(Handle handle, LaunchC
     if (did_yield()) {
       return false;
     }
-    ctx.resume_from_checkpoint = -1;
-    return readback_graph_do_while_flag(ctx, levels[level].cond_arg_id) != 0;
+    // A level that ends keeps the resume point (see the CPU launcher), so the work after a nested loop in the resumed
+    // pass is still skipped.
+    const bool cont = readback_graph_do_while_flag(ctx, levels[level].cond_arg_id) != 0;
+    if (cont) {
+      ctx.resume_from_checkpoint = -1;
+    }
+    return cont;
   };
   run_graph_do_while(num_tasks, task_level_ids, levels, launch_task, continue_level);
 }

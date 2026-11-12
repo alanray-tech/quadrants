@@ -230,12 +230,18 @@ void KernelLauncher::launch_offloaded_tasks_with_do_while(LaunchContextBuilder &
     return run_gated_task(ctx, (std::size_t)i, launcher_ctx, resume_point, yield_signal);
   };
   auto continue_level = [&](int level) -> bool {
-    // Resume only skips on the first pass: once a body has run, drop back to running every checkpoint.
-    resume_point = 0;
     if (yield_signal != -1) {
       return false;
     }
-    return ctx.get_context().cpu_assert_failed == 0 && *static_cast<int32_t *>(levels[level].flag_dev_ptr) != 0;
+    const bool cont =
+        ctx.get_context().cpu_assert_failed == 0 && *static_cast<int32_t *>(levels[level].flag_dev_ptr) != 0;
+    // Resume only skips on the first pass: once a level runs another pass, drop back to running every checkpoint.
+    // A level that ends keeps the resume point, as the CUDA cond-with-yield kernel does, so the work after a nested
+    // loop in the resumed pass is still skipped.
+    if (cont) {
+      resume_point = 0;
+    }
+    return cont;
   };
   run_graph_do_while((int)task_funcs.size(), graph_do_while_level_per_task, levels, launch_task, continue_level);
 }
