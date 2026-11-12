@@ -30,6 +30,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `fix/graph-parallel-serial-section-tasks` | The right-hand side of a bare store in a `qd.graph.parallel()` section is computed in that section's task, not in the previous section's, which raced on the CUDA graph path | Not submitted |
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
 | `fix/cpp-tests-without-vulkan` | The C++ tests link the SPIR-V codegen themselves when Vulkan and Metal are off, so they build in a Vulkan-off build | Not submitted |
+| `perf/checkpoint-task-regions` | On top of `perf/compile-speed` and `perf/checkpoint-implicit-grouping`: every task of a `checkpoints=True` kernel belongs to a checkpoint (inlined funcs, static ifs and bare statements included), one implicit checkpoint per maximal run outside explicit ones; bare statements and func calls allowed in checkpoint bodies; `qd.CHECKPOINT_TASK_REGIONS` | Not submitted (fixes issue #956) |
 | `perf/cuda-range-rematerialize` | On top of `perf/compile-speed`: on CUDA, scalar range bounds computed in an earlier task, and the loop body's uses of such scalars, are recomputed in the worker instead of passed through a serial task; a bound that reads device memory the loop may write keeps the serial task | Not submitted (follows PR #1024) |
 
 ## Feature notes
@@ -155,6 +156,41 @@ named here are the ones on `dev-fast`.
 - Same idea as the continuation regions of the `cuda-graph-qipc` pipeline builder, where one gate and one IF cover a
   maximal run of ordinary work.
 - Tests: the `test_autowrap_*` and `test_grouped_implicit_loops_*` tests in `tests/python/test_checkpoint.py`.
+
+### Checkpoint regions at the task level (`perf/checkpoint-task-regions`)
+
+- Before, only loops written in a `qd.checkpoint` body, and runs of top-level loops (implicit checkpoints), had a
+  checkpoint id. The loops of an inlined `@qd.func`, static-if bodies and bare stores outside explicit checkpoints ran
+  with cp_id -1: a resume ran them again and a yield did not stop them (issue #956). A one-kernel solve made of funcs,
+  as Genesis' Newton solve, needed an explicit never-yield checkpoint around every func call.
+- Now the ASTBuilder opens the implicit checkpoints: in a `checkpoints=True` kernel, a statement inserted into the root
+  block while no checkpoint is open opens one, closed by the next explicit checkpoint or `qd.graph.do_while` boundary.
+  Graph do-while bodies, static ifs and `requires_top_level` funcs all insert into the root block, so each maximal run
+  of tasks, whatever their source, is one implicit checkpoint (one gate kernel and one IF node on the CUDA graph path).
+  Replaces the AST grouping of `perf/checkpoint-implicit-grouping`, which had to stop at bare statements because a
+  `with` body opens a variable scope. Graph manager and launchers are unchanged.
+- Relaxed: bare statements and bare func calls in a checkpoint body (no `if qd.static(True):` needed), and a
+  `qd.graph.parallel_context()` outside explicit checkpoints. The offloader closes a serial bucket before a pure
+  statement of another checkpoint, so a later checkpoint's bare store does not read a value computed in a task that a
+  resume skipped. A pure statement computed in an implicit checkpoint next to a bare store, and used by a later
+  checkpoint, is still skipped with that store on resume.
+- `qd.CHECKPOINT_TASK_REGIONS` (`True`) tells this behaviour apart from builds without it; read it with
+  `getattr(qd, "CHECKPOINT_TASK_REGIONS", False)`.
+- Probes of the IPC perf member (6-pass do-while, yield once at pass 3, expected [prologue 1, before 6, body 7,
+  after 6]), CPU and CUDA, before -> after: prologue as a func [2, 6, 7, 6] -> [1, 6, 7, 6]; section before as a
+  func [1, 7, 7, 6] -> [1, 6, 7, 6]; body as a func under `if qd.static(True)` [1, 6, 7, 6] (already right); every
+  section a func [2, 6, 6, 6] -> [1, 6, 7, 6].
+- RTX 5090, exclusive GPU, a 1000-pass do-while holding 20 tiny tasks: written as loops or as func calls, 28 graph
+  nodes, 2 checkpoints, 43.8 us per pass; each func call in an explicit never-yield checkpoint (the Genesis-newton-v1
+  workaround), 88 nodes, 22 checkpoints, 180.2 us per pass. So one checkpoint costs about 6.8 us per pass (gate kernel
+  + IF node), unchanged by this topic; what changes is that funcs no longer need the workaround.
+- A checkpoint body holding a `qd.graph.do_while` (PR #944) takes the CUDA graph path on the RTX 5090, before and
+  after: 19 graph nodes, 4 checkpoints per launch. Quadrants 1.4.0 (without PR #944) logs "not yet supported on the
+  CUDA graph path; falling back to the non-graph launch" for it, and misses the yield.
+- Tests: `test_sections_as_funcs_*`, `test_yield_skips_following_top_level_func`, `test_static_if_and_bare_*`,
+  `test_checkpoint_bare_store_belongs_to_checkpoint`, `test_checkpoint_body_may_be_a_bare_func_call`,
+  `test_capability_flag` in `tests/python/test_checkpoint.py`, and
+  `test_graph_parallel_context_outside_checkpoint_joins_implicit_checkpoint` in `tests/python/test_graph_parallel.py`.
 
 ### Scalar range bounds recomputed in the worker (`perf/cuda-range-rematerialize`)
 
