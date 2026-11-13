@@ -49,6 +49,17 @@ class CheckpointTransformer:
         )
 
     @staticmethod
+    def contains_checkpoint(stmts: list[ast.stmt]) -> bool:
+        """Whether *stmts* hold a `with qd.checkpoint(...):` block anywhere, static branches included. Funcs cannot hold
+        checkpoints, so the kernel's own AST is enough."""
+        return any(
+            isinstance(node, ast.With)
+            and any(CheckpointTransformer._looks_like_checkpoint_call(item.context_expr) for item in node.items)
+            for stmt in stmts
+            for node in ast.walk(stmt)
+        )
+
+    @staticmethod
     def add_implicit_checkpoints(kernel, num_checkpoints: int) -> None:
         """Give every implicit checkpoint the ASTBuilder opened (ids up to *num_checkpoints* - 1 not yet in the kernel's
         per-checkpoint tables) its entry: no ``yield_on`` and no user label, so it never yields and is never a resume

@@ -31,9 +31,22 @@ def validate_resume_cookie(
         )
 
 
-def validate_graph_do_while_in_checkpoint_backend(graph_do_while_levels: Sequence[Any], *, graph_enabled: bool) -> None:
-    """Reject checkpoint-owned graph loops when the backend cannot skip the loop as one unit."""
-    if not any(level.checkpoint_id >= 0 for level in graph_do_while_levels):
+def validate_graph_do_while_in_checkpoint_backend(
+    graph_do_while_levels: Sequence[Any],
+    checkpoint_user_labels_by_cp_id: Sequence[int | None],
+    *,
+    graph_enabled: bool,
+) -> None:
+    """Reject graph loops owned by an explicit checkpoint when the backend cannot skip the loop as one unit.
+
+    A loop owned by an implicit checkpoint (one without a user label) holds no checkpoint, so no resume lands inside it;
+    there its tasks are skipped one by one, and the loop, which exited with its flag at 0, ends after one pass.
+    """
+
+    def is_explicit(cp_id: int) -> bool:
+        return 0 <= cp_id < len(checkpoint_user_labels_by_cp_id) and checkpoint_user_labels_by_cp_id[cp_id] is not None
+
+    if not any(is_explicit(level.checkpoint_id) for level in graph_do_while_levels):
         return
 
     arch = impl.current_cfg().arch

@@ -27,6 +27,8 @@ struct CheckpointBuildPlan {
   // lexically declared in it. This lets one IF body contain both direct work and child WHILE nodes instead of splitting
   // the checkpoint at every loop-level boundary.
   std::vector<int> checkpoint_level_ids;
+  // An explicit checkpoint (one with `yield_on=`) spans several loop levels. Implicit checkpoints owning a loop do not
+  // count: no resume lands inside such a loop, so its tasks may be skipped one by one.
   bool has_multi_level_checkpoint{false};
   bool use_pre_hopper_flat_graph{false};
   bool reject_graph_build{false};
