@@ -1166,8 +1166,14 @@ class ASTBuilder {
     implicit_checkpoints_ = true;
   }
 
-  // Close the implicit checkpoint open at the root, if any; the next root statement opens a new one. Called at graph
-  // do-while boundaries and at the end of the kernel body.
+  // Open an implicit checkpoint at the root if none is open. Called before a graph do-while that holds no explicit
+  // checkpoint: the loop joins the implicit checkpoint of the run around it, which then owns it.
+  void begin_implicit_checkpoint_if_needed() {
+    open_implicit_checkpoint_if_needed();
+  }
+
+  // Close the implicit checkpoint open at the root, if any; the next root statement opens a new one. Called at the
+  // boundaries of a graph do-while that holds an explicit checkpoint, and at the end of the kernel body.
   void end_implicit_checkpoint() {
     if (implicit_checkpoint_open_) {
       current_checkpoint_id_ = -1;

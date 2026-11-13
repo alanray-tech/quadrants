@@ -279,6 +279,7 @@ Every task of a `checkpoints=True` kernel belongs to a checkpoint, whatever it c
 
 - Inside `with qd.checkpoint(...)`, all of them belong to that checkpoint: the yield check runs after the last of them, and a resume re-runs all of them.
 - Outside explicit checkpoints, each maximal run of them, up to an explicit checkpoint or a `qd.graph.do_while` boundary, forms one implicit checkpoint. An implicit checkpoint never yields and cannot be passed to `from_checkpoint`; a resume skips it when it comes before the resume point (on the first pass of a loop), and a yield skips it when it comes after the yielding checkpoint. On the CUDA graph path it costs one gate kernel and one conditional node.
+- A `qd.graph.do_while` loop holding no checkpoint belongs whole to the implicit checkpoint of the run it is in: no resume can land inside it, so on the CUDA graph path it costs one gate around the loop, not one per pass, and its condition kernel does not watch for yields (a `qd.graph.do_while` holding a checkpoint is a boundary of the runs instead).
 - A bare statement without global side effect (for example `n = arr.shape[0] // 2`) always runs, so a value it computes for later work is never skipped.
 
 ```python

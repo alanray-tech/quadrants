@@ -206,6 +206,9 @@ CheckpointBuildPlan GraphManager::compute_checkpoint_plan_for_build(const std::v
   // tasks in one or more nested levels; its IF belongs at their lowest common ancestor so the nested WHILE nodes become
   // children of that one IF body. The old per-level grouping rejected this shape and fell back to ordinary launches.
   if (plan.has_checkpoints) {
+    auto is_explicit = [&](int cp_id) {
+      return (std::size_t)cp_id < ctx.checkpoint_yield_on_arg_ids.size() && ctx.checkpoint_yield_on_arg_ids[cp_id] >= 0;
+    };
     plan.checkpoint_level_ids.assign((std::size_t)plan.max_cp_id + 1, kUnsetCheckpointLevel);
     std::vector<int> first_task_level(plan.checkpoint_level_ids.size(), kUnsetCheckpointLevel);
     for (const auto &task : offloaded_tasks) {
@@ -217,7 +220,7 @@ CheckpointBuildPlan GraphManager::compute_checkpoint_plan_for_build(const std::v
           owner = task.graph_do_while_level_id;
           first_level = task.graph_do_while_level_id;
         } else {
-          if (task.graph_do_while_level_id != first_level) {
+          if (task.graph_do_while_level_id != first_level && is_explicit(task.checkpoint_id)) {
             plan.has_multi_level_checkpoint = true;
           }
           owner = common_graph_do_while_ancestor(owner, task.graph_do_while_level_id, ctx.graph_do_while_levels);
@@ -226,7 +229,9 @@ CheckpointBuildPlan GraphManager::compute_checkpoint_plan_for_build(const std::v
     }
     for (const auto &level : ctx.graph_do_while_levels) {
       if (level.checkpoint_id >= 0) {
-        plan.has_multi_level_checkpoint = true;
+        if (is_explicit(level.checkpoint_id)) {
+          plan.has_multi_level_checkpoint = true;
+        }
         int &owner = plan.checkpoint_level_ids[(std::size_t)level.checkpoint_id];
         if (owner == kUnsetCheckpointLevel) {
           owner = level.parent_id;

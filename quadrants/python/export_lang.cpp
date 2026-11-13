@@ -442,6 +442,7 @@ void export_lang(nb::module_ &m) {
       .def("begin_checkpoint", &ASTBuilder::begin_checkpoint)
       .def("end_checkpoint", &ASTBuilder::end_checkpoint)
       .def("enable_implicit_checkpoints", &ASTBuilder::enable_implicit_checkpoints)
+      .def("begin_implicit_checkpoint_if_needed", &ASTBuilder::begin_implicit_checkpoint_if_needed)
       .def("end_implicit_checkpoint", &ASTBuilder::end_implicit_checkpoint)
       .def("num_checkpoints", &ASTBuilder::num_checkpoints);
 

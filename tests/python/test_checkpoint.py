@@ -966,6 +966,94 @@ def test_capability_flag():
     assert qd.CHECKPOINT_TASK_REGIONS is True
 
 
+@qd.kernel(graph=True, checkpoints=True)
+def _kernel_free_inner_loop(
+    counts: qd.types.ndarray(qd.i32, ndim=1),
+    flag: qd.types.ndarray(qd.i32, ndim=0),
+    inner: qd.types.ndarray(qd.i32, ndim=0),
+    passes: qd.types.ndarray(qd.i32, ndim=0),
+    overflow: qd.types.ndarray(qd.i32, ndim=0),
+    yield_at: qd.types.ndarray(qd.i32, ndim=0),
+):
+    for _ in range(1):
+        counts[0] = counts[0] + 1
+        passes[()] = 0
+        flag[()] = 1
+    while qd.graph.do_while(flag):
+        for _ in range(1):
+            counts[1] = counts[1] + 1
+            inner[()] = 3
+        while qd.graph.do_while(inner):
+            for _ in range(1):
+                counts[2] = counts[2] + 1
+                inner[()] = inner[()] - 1
+        for _ in range(1):
+            counts[3] = counts[3] + 1
+        with qd.checkpoint(0, yield_on=overflow):
+            for _ in range(1):
+                counts[4] = counts[4] + 1
+                if passes[()] == yield_at[()]:
+                    overflow[()] = 1
+        for _ in range(1):
+            counts[5] = counts[5] + 1
+            passes[()] = passes[()] + 1
+            flag[()] = qd.i32(passes[()] < 6)
+
+
+def _run_free_inner_loop():
+    """Launch `_kernel_free_inner_loop` yielding on pass 3 of 6, resume it, and return the counts at the yield and at
+    the end, with the graph checkpoints of the resume launch."""
+    counts = qd.ndarray(qd.i32, shape=(6,))
+    flag = qd.ndarray(qd.i32, shape=())
+    inner = qd.ndarray(qd.i32, shape=())
+    passes = qd.ndarray(qd.i32, shape=())
+    overflow = qd.ndarray(qd.i32, shape=())
+    yield_at = qd.ndarray(qd.i32, shape=())
+    counts.from_numpy(np.zeros(6, dtype=np.int32))
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(3, dtype=np.int32))
+    status = _kernel_free_inner_loop(counts, flag, inner, passes, overflow, yield_at)
+    assert status.yielded and status.checkpoint == 0
+    at_yield = counts.to_numpy().tolist()
+    overflow.from_numpy(np.array(0, dtype=np.int32))
+    yield_at.from_numpy(np.array(-1, dtype=np.int32))
+    status = _kernel_free_inner_loop.resume(counts, flag, inner, passes, overflow, yield_at, from_checkpoint=0)
+    assert not status.yielded
+    return at_yield, counts.to_numpy().tolist(), _num_checkpoints_on_last_call()
+
+
+@test_utils.test()
+def test_checkpoint_free_nested_loop_joins_the_region_around_it():
+    """A nested qd.graph.do_while holding no checkpoint joins the implicit checkpoint of the run around it (the task
+    before it, the task after it), which owns the loop: one gate around the loop instead of one per pass. Resume and
+    yield behave as before: counts [prologue, head, inner, tail, body, after] [1, 4, 12, 4, 4, 3] at the yield,
+    [1, 6, 18, 6, 7, 6] at the end. Checkpoints: prologue, head + inner loop + tail, the explicit one, after."""
+    if not _supports_checkpoint_yield_resume_in_while_loop():
+        pytest.skip("requires yield/resume support inside qd.graph.do_while")
+    at_yield, final, num_checkpoints = _run_free_inner_loop()
+    assert at_yield == [1, 4, 12, 4, 4, 3]
+    assert final == [1, 6, 18, 6, 7, 6]
+    kernel = _kernel_free_inner_loop._primal
+    assert kernel.checkpoint_user_labels_by_cp_id == [None, None, 0, None]
+    levels = kernel._launch_metadata[kernel._last_launch_key].graph_do_while_levels
+    assert [level.checkpoint_id for level in levels] == [-1, 1]
+    if _is_checkpoint_if_path_native():
+        assert num_checkpoints == 4
+
+
+@test_utils.test(arch=qd.cuda)
+def test_checkpoint_free_nested_loop_on_flat_checkpoint_graph(monkeypatch: pytest.MonkeyPatch):
+    """The flat checkpoint graph (pre-SM 9.0, forced here) cannot gate a WHILE node, so it rejects a loop owned by an
+    explicit checkpoint; a loop owned by an implicit checkpoint has its tasks gated one by one there, with the same
+    counts."""
+    if not _is_checkpoint_if_path_native():
+        pytest.skip("needs the native CUDA graph path to force the flat one")
+    monkeypatch.setenv("QD_CUDA_FORCE_FLAT_CHECKPOINT_GRAPH", "1")
+    at_yield, final, _ = _run_free_inner_loop()
+    assert at_yield == [1, 4, 12, 4, 4, 3]
+    assert final == [1, 6, 18, 6, 7, 6]
+
+
 @test_utils.test()
 def test_resume_by_intenum_label_round_trip():
     """The canonical IntEnum-driven host loop: yield from one stage, resume from a later one. The IntEnum identity

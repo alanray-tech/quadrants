@@ -1122,7 +1122,9 @@ class Kernel(FuncBase):
                 _resume_from_checkpoint, launch_metadata.checkpoint_yield_on_args
             )
         _checkpoint_helpers.validate_graph_do_while_in_checkpoint_backend(
-            launch_metadata.graph_do_while_levels, graph_enabled=_GRAPH_ENABLED
+            launch_metadata.graph_do_while_levels,
+            launch_metadata.checkpoint_user_labels_by_cp_id,
+            graph_enabled=_GRAPH_ENABLED,
         )
         # Checkpoint-enabled slow path: translate the user-supplied `from_checkpoint=` label into the dense,
         # source-order internal cp_id the runtime uses. Translation happens here (after `ensure_compiled`) because

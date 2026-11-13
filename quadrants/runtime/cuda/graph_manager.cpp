@@ -3,6 +3,7 @@
 #include "quadrants/runtime/cuda/cuda_utils.h"
 #include "quadrants/rhi/cuda/cuda_context.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <vector>
@@ -389,9 +390,16 @@ void *GraphManager::build_level(int parent_id,
                                 void *prev_node,
                                 int active_checkpoint_id,
                                 bool append_condition) {
-  // A yield-bearing kernel (has_yield) wires every loop level's condition kernel to the cond-with-yield variant, so a
-  // yield raised inside any checkpoint exits this and every enclosing WHILE loop.
-  const bool has_yield = (cached.yield_signal_dev_ptr != nullptr);
+  // A loop level holding a yielding checkpoint (recursively) gets the cond-with-yield condition kernel, so a yield
+  // raised inside it exits this and every enclosing WHILE loop, and the resume point is reset when it continues. A
+  // level holding none gets the plain one: a yield before it skips the checkpoint that owns it, and no resume can land
+  // inside it. [begin, end) is the whole loop when this call appends its condition.
+  const bool has_yield = (cached.yield_signal_dev_ptr != nullptr) &&
+                         std::any_of(tasks.begin() + begin, tasks.begin() + end, [&](const OffloadedTask &task) {
+                           return task.checkpoint_id >= 0 &&
+                                  (std::size_t)task.checkpoint_id < cached.checkpoint_yield_on_ptr_slots.size() &&
+                                  cached.checkpoint_yield_on_ptr_slots[task.checkpoint_id] != nullptr;
+                         });
   auto task_grid_dim = [&](const OffloadedTask &task) {
     if (!task.grid_stride) {
       return task.grid_dim;
@@ -601,8 +609,7 @@ void *GraphManager::build_level(int parent_id,
     cursor++;
   }
   // For a real loop level, append its condition kernel last so it reads the flag after this iteration's work has
-  // updated it. Use the cond-with-yield variant when the kernel has yielding checkpoints so a yield exits this (and
-  // every enclosing) WHILE loop.
+  // updated it, in the variant chosen above.
   if (append_condition && parent_id >= 0) {
     if (has_yield) {
       void *cond_args[4] = {&cond_handles[parent_id], &cached.counter_ptr_slots[parent_id],
