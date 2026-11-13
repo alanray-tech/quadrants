@@ -31,6 +31,7 @@ Each topic has its own branch on the fork. Changes are made on the topic branch,
 | `perf/checkpoint-implicit-grouping` | In a `checkpoints=True` kernel, each run of consecutive loops outside explicit checkpoints is one implicit checkpoint, so one gate kernel and one CUDA IF node, instead of one per loop | Not submitted |
 | `fix/cpp-tests-without-vulkan` | The C++ tests link the SPIR-V codegen themselves when Vulkan and Metal are off, so they build in a Vulkan-off build | Not submitted |
 | `perf/checkpoint-task-regions` | On top of `perf/compile-speed` and `perf/checkpoint-implicit-grouping`: every task of a `checkpoints=True` kernel belongs to a checkpoint (inlined funcs, static ifs and bare statements included), one implicit checkpoint per maximal run outside explicit ones; bare statements and func calls allowed in checkpoint bodies; `qd.CHECKPOINT_TASK_REGIONS` | Not submitted (fixes issue #956) |
+| `perf/checkpoint-free-loops` | On top of `perf/checkpoint-task-regions`: a `qd.graph.do_while` holding no checkpoint joins the implicit checkpoint around it (one gate around the loop, not one per pass) and uses the plain condition kernel | Not submitted |
 | `fix/checkpoint-resume-nested-loop` | On CPU and Vulkan/Metal, the work after a nested `qd.graph.do_while` that precedes the resumed checkpoint no longer runs again in the resumed pass | Not submitted |
 | `perf/cuda-range-rematerialize` | On top of `perf/compile-speed`: on CUDA, scalar range bounds computed in an earlier task, and the loop body's uses of such scalars, are recomputed in the worker instead of passed through a serial task; a bound that reads device memory the loop may write keeps the serial task | Not submitted (follows PR #1024) |
 
@@ -192,6 +193,29 @@ named here are the ones on `dev-fast`.
   `test_checkpoint_bare_store_belongs_to_checkpoint`, `test_checkpoint_body_may_be_a_bare_func_call`,
   `test_capability_flag` in `tests/python/test_checkpoint.py`, and
   `test_graph_parallel_context_outside_checkpoint_joins_implicit_checkpoint` in `tests/python/test_graph_parallel.py`.
+
+### Checkpoint-free loops (`perf/checkpoint-free-loops`)
+
+- With task-level regions, every `qd.graph.do_while` was a boundary of the implicit checkpoints, so a loop holding
+  none (a PCG loop) launched a gate kernel and an IF node on every pass, and its condition kernel was the with-yield
+  variant. The IPC perf member measured, on the mono Newton kernel (mpm_drop, nsys): 1755 gates per step (1.05 ms),
+  PCG kernels 10-20% slower in the gated region, and the with-yield condition kernel 1.70 vs 1.27 ms per step.
+- Now a `qd.graph.do_while` whose body holds no `with qd.checkpoint` joins the implicit checkpoint open at its
+  position, which owns it whole (as a loop inside an explicit checkpoint, PR #944): one gate and one IF around the
+  WHILE node per pass of the enclosing level. No resume can land inside such a loop. The graph manager picks the
+  condition kernel per level: with-yield only for a level holding a yielding checkpoint. Loops holding a checkpoint
+  stay boundaries, and the regions after the last explicit checkpoint stay gated (a yield must stop them).
+- CPU, AMDGPU, GFX and the flat checkpoint graph cannot skip a whole loop: they keep rejecting a loop owned by an
+  explicit checkpoint, and gate the tasks of a loop owned by an implicit one one by one (the loop exited with its
+  flag at 0, so it ends after one pass; `fix/checkpoint-resume-nested-loop` keeps the resume point there).
+- RTX 5090, exclusive GPU, an outer do-while of 1000 passes holding a task, a checkpoint-free inner do-while of 10
+  passes with 2 tiny tasks, and an explicit never-yield checkpoint: 22 graph nodes, 5 checkpoints, 149.7 us per outer
+  pass before; 20 nodes, 4 checkpoints, 91.0 us after (-39%). Gates per outer pass: 13 before (one per inner pass), 3
+  after (prefix with the loop, the explicit checkpoint, the suffix). A checkpoint-free do-while of 20 tiny tasks:
+  43.5 -> 38.0 us per pass (its single region now holds the loop, one gate per launch).
+- Tests: `test_checkpoint_free_nested_loop_joins_the_region_around_it` (counts, checkpoint ids, the loop's owner,
+  4 IF nodes) and `test_checkpoint_free_nested_loop_on_flat_checkpoint_graph` in
+  `tests/python/test_checkpoint.py`.
 
 ### Resume past a nested loop (`fix/checkpoint-resume-nested-loop`)
 
